@@ -14,5 +14,10 @@ nextflow.enable.dsl=2
 include { PREPROCESSING } from './subworkflows/preprocessing'
 
 workflow  {
-    PREPROCESSING( params.input )
+    Channel.fromPath ( params.input )
+    .splitCsv ( header: true )
+    .map { [it, it.video] }
+    .first()
+    .set { in_ch }
+    PREPROCESSING ( in_ch )
 }
