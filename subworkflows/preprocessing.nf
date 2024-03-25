@@ -119,30 +119,69 @@ process split_videos {
         end = ${meta.end_frame}
         adj_top = ${meta.adj_top}
         adj_right = ${meta.adj_right}
+        quadrant = ${meta.quadrant}
         w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
         mid_x = round(((w - 1) / 2) + adj_right)
         mid_y = round(((h - 1) / 2) + adj_top)
-        cap.set(cv.CAP_PROP_POS_FRAMES, start)
-        ret, frame = cap.read()
+        vid_len = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
+        fps = int(cap.get(cv.CAP_PROP_FPS))
 
-        # Add vertical line 
-        start_point = (mid_x, 0)
-        end_point = (mid_x, h)
-        color = (255,0,0)
-        thickness = 1
-        frame = cv.line(frame, start_point, end_point, color, thickness)
+        if quadrant == 'q1':
+            top = 0
+            bottom = mid_y
+            left = mid_x
+            right = w - 1
+        elif quadrant == 'q2':
+            top = 0
+            bottom = mid_y
+            left = 0
+            right = mid_x
+        elif quadrant == 'q3':
+            top = mid_y
+            bottom = h - 1
+            left = 0
+            right = mid_x
+        elif quadrant == 'q4':
+            top = mid_y
+            bottom = h - 1
+            left = mid_x
+            right = w  - 1
+        else:
+            print('Invalid quadrant') 
 
-        # Add horizontal line
-        start_point = (0, mid_y)
-        end_point = (w, mid_y)
-        color = (255,0,0)
-        thickness = 1
-        frame = cv.line(frame, start_point, end_point, color, thickness)
+        size = (right - left, bottom - top)
 
-        # Write frame
-        cv.imwrite(OUT_FILE, frame)
+        # Define the codec and create VideoWriter object
+
+        fourcc = cv.VideoWriter_fourcc('h', '2', '6', '4')
+        out = cv.VideoWriter(OUT_FILE, fourcc, fps, size, isColor=True)
+
+        # Capture frame-by-frame
+
+        i = start
+        while i in range(start,end):
+            cap.set(cv.CAP_PROP_POS_FRAMES, i)
+            # Capture frame-by-frame
+            ret, frame = cap.read()
+            # if frame is read correctly ret is True
+            if not ret:
+                print("Can't receive frame (stream end?). Exiting ...")
+                break
+            # Crop frame
+            frame = frame[top:bottom, left:right]
+            # Write frame
+            out.write(frame)
+            # Add to counter
+            i += 1
+            # Press 'esc' to close video
+        #    if cv.waitKey(1) == 27:
+        #        cv.destroyAllWindows()
+        #        cv.waitKey(1)
+        #        break
+
         cap.release()
+        out.release()
         """
 }
 
@@ -207,6 +246,6 @@ workflow PREPROCESSING {
             ]
         }
         .view()
-        .set { set_split_coords_in_ch }
-        set_split_coords ( set_split_coords_in_ch )
+        .set { no_of_vids }
+        set_split_coords ( no_of_vids )
 }
