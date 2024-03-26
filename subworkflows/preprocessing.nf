@@ -49,7 +49,7 @@ process set_split_coords {
     output:
         tuple(
             val(meta),
-            path("${video_in.baseName}_${meta.assay}_split_coords.png")
+            path("${meta.id}_split_coords.png")
         )
 
     script:
@@ -86,7 +86,7 @@ process set_split_coords {
         frame = cv.line(frame, start_point, end_point, color, thickness)
 
         # Write frame
-        cv.imwrite("${video_in.baseName}_${meta.assay}_split_coords.png", frame)
+        cv.imwrite("${meta.id}_split_coords.png", frame)
         cap.release()
         """
 }
@@ -104,7 +104,7 @@ process split_videos {
     output:
         tuple(
             val(meta),
-            path("${video_in.baseName}_flipped.avi")
+            path("${meta.id}.avi")
         )
 
     script:
@@ -119,7 +119,7 @@ process split_videos {
         end = ${meta.end_frame}
         adj_top = ${meta.adj_top}
         adj_right = ${meta.adj_right}
-        quadrant = ${meta.quadrant}
+        quadrant = "${meta.quadrant}"
         w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
         mid_x = round(((w - 1) / 2) + adj_right)
@@ -151,34 +151,21 @@ process split_videos {
             print('Invalid quadrant') 
 
         size = (right - left, bottom - top)
-
-        # Define the codec and create VideoWriter object
-
         fourcc = cv.VideoWriter_fourcc('h', '2', '6', '4')
-        out = cv.VideoWriter(OUT_FILE, fourcc, fps, size, isColor=True)
-
-        # Capture frame-by-frame
+        out = cv.VideoWriter(
+            "${meta.id}.avi", fourcc, fps, size, isColor = True
+        )
 
         i = start
         while i in range(start,end):
             cap.set(cv.CAP_PROP_POS_FRAMES, i)
-            # Capture frame-by-frame
             ret, frame = cap.read()
-            # if frame is read correctly ret is True
             if not ret:
                 print("Can't receive frame (stream end?). Exiting ...")
                 break
-            # Crop frame
             frame = frame[top:bottom, left:right]
-            # Write frame
             out.write(frame)
-            # Add to counter
             i += 1
-            # Press 'esc' to close video
-        #    if cv.waitKey(1) == 27:
-        #        cv.destroyAllWindows()
-        #        cv.waitKey(1)
-        #        break
 
         cap.release()
         out.release()
@@ -206,11 +193,13 @@ workflow PREPROCESSING {
             meta, vid, assay ->
             [
                 [
-                    id: meta.id,
+                    id: meta.id + "_" + assay,
                     date: meta.date,
                     tank_side: meta.tank_side,
                     assay: assay,
                     fps: meta.fps,
+                    ref: meta.ref,
+                    test: meta.test,
                     // take the right variables for open field and novel object assays
                     start_frame: assay == "of" ? meta.of_start : meta.no_start,
                     end_frame: assay == "of" ? meta.of_end : meta.no_end,
@@ -245,7 +234,42 @@ workflow PREPROCESSING {
                 vid
             ]
         }
-        .view()
         .set { no_of_vids }
         set_split_coords ( no_of_vids )
+
+        no_of_vids
+        .combine ( ["q1", "q2", "q3", "q4"] )
+        .map {
+            meta, vid, quadrant ->
+            [
+                [
+                    id: meta.id + "_" + quadrant,
+                    date: meta.date,
+                    tank_side: meta.tank_side,
+                    assay: meta.assay,
+                    fps: meta.fps,
+                    ref: meta.ref,
+                    test: meta.test,
+                    start_frame: meta.start_frame,
+                    end_frame: meta.end_frame,
+                    adj_top: meta.adj_top,
+                    adj_right: meta.adj_right,
+                    video_length: meta.video_length,
+                    quadrant: quadrant,
+                    // take the right variables for the quadrant
+                    bgsub: meta["bgsub_" + quadrant],
+                    intensity_floor: meta["intensity_floor_" + quadrant],
+                    intensity_ceiling: meta["intensity_ceiling_" + quadrant],
+                    area_floor: meta["area_floor_" + quadrant],
+                    area_ceiling: meta["area_ceiling_" + quadrant],
+                    cab_coords: meta["cab_coords_" + quadrant],
+                ],
+                vid
+            ]
+        }
+        .set { split_videos_in }
+        split_videos ( split_videos_in )
+
+    emit:
+        split_videos.out
 }

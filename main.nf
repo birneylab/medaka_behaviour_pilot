@@ -12,6 +12,7 @@ Mail: saul@ebi.ac.uk
 nextflow.enable.dsl=2
 
 include { PREPROCESSING } from './subworkflows/preprocessing'
+include { TRACKING      } from './subworkflows/tracking'
 
 workflow  {
     Channel.fromPath ( params.input )
@@ -20,4 +21,5 @@ workflow  {
     .first()
     .set { in_ch }
     PREPROCESSING ( in_ch )
+    TRACKING ( PREPROCESSING.out )
 }
