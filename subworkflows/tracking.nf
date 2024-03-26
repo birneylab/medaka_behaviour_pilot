@@ -21,27 +21,31 @@ process track_video {
     output:
         tuple(
             val(meta),
-            path("session_${meta.id}", type: "dir")
+            path("session_${meta.id}", type: "dir"),
+            // output needed so that it fails if no output, error handling not perfect in idtrackerai
+            path("session_${meta.id}/trajectories/with_gaps_csv/trajectories.csv")
         )
+
 
     script:
         """
         export LD_LIBRARY_PATH="${CONDA_PREFIX}/lib"
 
-        idtrackerai \\
-            --track \\
-            --output_dir . \\
-            --name ${meta.id} \\
-            --video_paths ${video_in} \\
-            --use_bkg ${meta.bgsub} \\
-            --tracking_intervals "0,${meta.video_length}" \\
-            --number_of_animals 2 \\
-            --intensity_ths ${meta.intensity_floor} ${meta.intensity_ceiling} \\
-            --area_ths ${meta.area_floor} ${meta.area_ceiling}
-        
-        if [ ! -f session_${meta.id}/trajectories/with_gaps_csv/trajectories.csv ]; then
-            exit 1
-        fi
+        { 
+            idtrackerai \\
+                --track \\
+                --output_dir . \\
+                --name ${meta.id} \\
+                --video_paths ${video_in} \\
+                --use_bkg ${meta.bgsub} \\
+                --tracking_intervals "0,${meta.video_length}" \\
+                --number_of_animals 2 \\
+                --intensity_ths ${meta.intensity_floor} ${meta.intensity_ceiling} \\
+                --area_ths ${meta.area_floor} ${meta.area_ceiling}
+        } || {
+            # needed because idtrackerai fails when it shouldn't
+            exit 0
+        }
         """
 }
 
@@ -88,11 +92,11 @@ process assign_ref_test {
         } else {
             if (cab_coords == "Top") {
                 idx <- which.min(first_frame[["y1"]], first_frame[["y2"]])
-            } else if (cab_coords == "Bottom")
+            } else if (cab_coords == "Bottom") {
                 idx <- which.max(first_frame[["y1"]], first_frame[["y2"]])
-            } else if (cab_coords == "Left")
+            } else if (cab_coords == "Left") {
                 idx <- which.min(first_frame[["x1"]], first_frame[["x2"]])
-            } else if (cab_coords == "Right")
+            } else if (cab_coords == "Right") {
                 idx <- which.max(first_frame[["x1"]], first_frame[["x2"]])
             } else {
                 stop("Unrecognised ref position")
@@ -113,9 +117,6 @@ process assign_ref_test {
             stop("Index not recognised")
         }
 
-        traj[, fps := ${meta.fps}]
-        traj[, fps := ${meta.fps}]
-
         fwrite(traj, "${meta.id}_traj.csv.gz")
         """
 }
@@ -127,7 +128,7 @@ process visualise_identities {
     input:
         tuple(
             val(meta),
-            path(session_folder),
+            path(video_in),
             path(traj)
         )
 
@@ -152,8 +153,10 @@ process visualise_identities {
             ref = (0, 0, 255), # BGR red
             test = (0, 0, 0), # BGR black
         )
-        font = cv2.FONT_HERSHEY_SIMPLEX
-        frame = np.load("${session_folder}")
+        font = cv.FONT_HERSHEY_SIMPLEX
+        cap = cv.VideoCapture("${video_in}")
+        cap.set(cv.CAP_PROP_POS_FRAMES, 0)
+        ret, frame = cap.read()
         df = pd.read_csv("${traj}", nrows = 1)
         ref_x = df.iloc[0]["ref_x"]
         ref_y = df.iloc[0]["ref_y"]
@@ -161,13 +164,13 @@ process visualise_identities {
         test_y = df.iloc[0]["test_y"]
 
         # add points showing the test and reference fish
-        cv2.circle(
+        cv.circle(
             frame, tuple(ref_x, ref_y), circle_size, colors["ref"], -1
         )
-        cv2.circle(
+        cv.circle(
             frame, tuple(test_x, test_y), circle_size, colors["test"], -1
         )
-        cv2.putText(
+        cv.putText(
             frame,
             "ref",
             tuple(ref_x, ref_y),
@@ -176,7 +179,7 @@ process visualise_identities {
             colors["ref"],
             font_width,
         )
-        cv2.putText(
+        cv.putText(
             frame,
             "test",
             tuple(test_x, test_y),
@@ -199,5 +202,9 @@ workflow TRACKING {
     
     main:
         track_video ( split_vids )
-        //assign_ref_test ( track_video.out )
+        track_video.out
+        .map { meta, session, traj -> [meta, session] }
+        .set { tracking_sessions }
+        assign_ref_test ( tracking_sessions )
+        //visualise_identities ( split_vids.join ( assign_ref_test.out, by: 0 ) )
 }
