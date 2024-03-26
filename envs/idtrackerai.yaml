@@ -1,14 +1,12 @@
-name: idtrackerai
 channels:
   - conda-forge
   - pytorch
 dependencies:
   - python=3.11
-  - gcc
   - pytorch
   - torchvision
   - torchaudio
-  - pytorch
+  - cpuonly
   - pip
   - pip:
-    - idtrackerai==5.2.11
+    - idtrackerai==5.2.10
