@@ -203,7 +203,15 @@ workflow TRACKING {
         split_vids
     
     main:
-        track_video ( split_vids )
+        Channel.fromPath ( params.idtrackerai_params )
+        .splitCsv ( header: true )
+        .map { meta -> [meta.id, meta] }
+        .set { tracking_params }
+        split_vids
+        .map { meta, vid -> [meta.id, meta, vid] }
+        .join ( tracking_params, by: 0 )
+        .set { track_video_in_ch }
+        track_video ( track_video_in_ch )
         //track_video.out
         //.map { meta, session, traj -> [meta, session] }
         //.set { tracking_sessions }

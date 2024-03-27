@@ -1,2 +1,3 @@
 input_tracking: "${projectDir}/samplesheets/samplesheet_tracking.csv"
+idtrackerai_params: "${projectDir}/samplesheets/idtrackerai_params.csv"
 time_interval: 0.08
