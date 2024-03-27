@@ -16,7 +16,7 @@ include { TRACKING      } from './subworkflows/tracking'
 include { HMM           } from './subworkflows/hmm'
 
 workflow  TRACK_VIDEOS {
-    Channel.fromPath ( params.input_vid )
+    Channel.fromPath ( params.input_tracking )
     .splitCsv ( header: true )
     .map { [it, it.video] }
     //.first()

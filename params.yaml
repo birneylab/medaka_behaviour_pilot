@@ -1,2 +1,2 @@
-input_vid: "${projectDir}/samplesheets/samplesheet_idtrackerai5.csv"
+input_tracking: "${projectDir}/samplesheets/samplesheet_tracking.csv"
 time_interval: 0.08
