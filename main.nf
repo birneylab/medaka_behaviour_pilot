@@ -19,7 +19,7 @@ workflow  TRACK_VIDEOS {
     Channel.fromPath ( params.input_vid )
     .splitCsv ( header: true )
     .map { [it, it.video] }
-    .first()
+    //.first()
     .set { in_vid_ch }
     PREPROCESSING ( in_vid_ch )
     TRACKING ( PREPROCESSING.out )

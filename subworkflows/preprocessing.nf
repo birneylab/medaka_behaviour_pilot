@@ -210,6 +210,10 @@ workflow PREPROCESSING {
                     bgsub_q2: assay == "of" ? meta.bgsub_of_q2 : meta.bgsub_no_q2,
                     bgsub_q3: assay == "of" ? meta.bgsub_of_q3 : meta.bgsub_no_q3,
                     bgsub_q4: assay == "of" ? meta.bgsub_of_q4 : meta.bgsub_no_q4,
+                    bgsub_mode_q1: assay == "of" ? meta.bgsub_mode_of_q1 : meta.bgsub_mode_no_q1,
+                    bgsub_mode_q2: assay == "of" ? meta.bgsub_mode_of_q2 : meta.bgsub_mode_no_q2,
+                    bgsub_mode_q3: assay == "of" ? meta.bgsub_mode_of_q3 : meta.bgsub_mode_no_q3,
+                    bgsub_mode_q4: assay == "of" ? meta.bgsub_mode_of_q4 : meta.bgsub_mode_no_q4,
                     intensity_floor_q1: assay == "of" ? meta.intensity_floor_of_q1 : meta.intensity_floor_no_q1,
                     intensity_floor_q2: assay == "of" ? meta.intensity_floor_of_q2 : meta.intensity_floor_no_q2,
                     intensity_floor_q3: assay == "of" ? meta.intensity_floor_of_q3 : meta.intensity_floor_no_q3,
@@ -258,6 +262,7 @@ workflow PREPROCESSING {
                     quadrant: quadrant,
                     // take the right variables for the quadrant
                     bgsub: meta["bgsub_" + quadrant],
+                    bgsub_mode: meta["bgsub_mode_" + quadrant],
                     intensity_floor: meta["intensity_floor_" + quadrant],
                     intensity_ceiling: meta["intensity_ceiling_" + quadrant],
                     area_floor: meta["area_floor_" + quadrant],
@@ -272,4 +277,9 @@ workflow PREPROCESSING {
 
     emit:
         split_videos.out
+        .filter {
+            // no fish in the video
+            meta, vid -> 
+            !(meta.id ==~ /20190616_1227_icab_kaga_R_(of|no)_q3/)
+        }
 }

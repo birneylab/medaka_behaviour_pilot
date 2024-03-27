@@ -1,2 +1,2 @@
-input_vid: "/nfs/research/birney/users/saul/meta/behavioural_project/pilot/samplesheet_idtrackerai5.csv"
+input_vid: "${projectDir}/samplesheets/samplesheet_idtrackerai5.csv"
 time_interval: 0.08

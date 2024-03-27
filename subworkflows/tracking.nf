@@ -38,10 +38,12 @@ process track_video {
                 --name ${meta.id} \\
                 --video_paths ${video_in} \\
                 --use_bkg ${meta.bgsub} \\
+                --background_subtraction_stat ${meta.bgsub_mode} \\
                 --tracking_intervals "0,${meta.video_length}" \\
                 --number_of_animals 2 \\
                 --intensity_ths ${meta.intensity_floor} ${meta.intensity_ceiling} \\
-                --area_ths ${meta.area_floor} ${meta.area_ceiling}
+                --area_ths ${meta.area_floor} ${meta.area_ceiling} \\
+                --add_time_column_to_csv TRUE
         } || {
             # needed because idtrackerai fails when it shouldn't
             exit 0
@@ -202,9 +204,9 @@ workflow TRACKING {
     
     main:
         track_video ( split_vids )
-        track_video.out
-        .map { meta, session, traj -> [meta, session] }
-        .set { tracking_sessions }
-        assign_ref_test ( tracking_sessions )
+        //track_video.out
+        //.map { meta, session, traj -> [meta, session] }
+        //.set { tracking_sessions }
+        //assign_ref_test ( tracking_sessions )
         //visualise_identities ( split_vids.join ( assign_ref_test.out, by: 0 ) )
 }
