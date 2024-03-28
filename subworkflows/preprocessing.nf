@@ -13,6 +13,7 @@ process adjust_orientation {
     // rotate 180 degrees the videos
     // camera was in the wrong orientation for the R videos
     label "ffmpeg"
+    tag "${meta.id}"
 
     input:
         tuple(
@@ -94,6 +95,7 @@ process set_split_coords {
 process split_videos {
     // visualise the splitting coordinates on a frame grab
     label "python_opencv_numpy_pandas"
+    tag "${meta.id}"
 
     input:
         tuple(
