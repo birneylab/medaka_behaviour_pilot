@@ -43,6 +43,7 @@ process track_video {
                 --number_of_animals 2 \\
                 --intensity_ths ${meta.intensity_floor} ${meta.intensity_ceiling} \\
                 --area_ths ${meta.area_floor} ${meta.area_ceiling} \\
+                --protocol3_action ${meta.protocol3_action} \\
                 --add_time_column_to_csv TRUE
         } || {
             # needed because idtrackerai fails when it shouldn't
@@ -210,11 +211,12 @@ workflow TRACKING {
         split_vids
         .map { meta, vid -> [meta.id, meta, vid] }
         .join ( tracking_params, by: 0 )
+        .map { key, meta, vid, meta2 -> [meta + meta2, vid] }
         .set { track_video_in_ch }
         track_video ( track_video_in_ch )
-        //track_video.out
-        //.map { meta, session, traj -> [meta, session] }
-        //.set { tracking_sessions }
-        //assign_ref_test ( tracking_sessions )
+        track_video.out
+        .map { meta, session, traj -> [meta, session] }
+        .set { tracking_sessions }
+        assign_ref_test ( tracking_sessions )
         //visualise_identities ( split_vids.join ( assign_ref_test.out, by: 0 ) )
 }
