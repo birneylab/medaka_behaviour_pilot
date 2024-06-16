@@ -268,6 +268,10 @@ process visualise_identities {
 
 process aggregate_tracking_stats {
     // creates a dataset of tracking statistics for further exploration
+    // estimated_accuracy: ?
+    // estimated_accuracy_after_interpolation: mean id probability ignoring NA
+    // percentage_identified: fraction of frames*animals with non-NA coordinates
+    // estimated_accuracy_identified: mean id probability ignoring NA for frames*animals with non-NA coordinates
     label "python_opencv_numpy_pandas"
 
     input:
@@ -285,6 +289,7 @@ process aggregate_tracking_stats {
 
         import json
         import glob
+        import pandas as pd
 
         f_list = glob.glob("*.json")
         df = pd.DataFrame([json.load(f) for f in f_list])
