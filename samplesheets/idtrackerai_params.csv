@@ -1,4 +1,4 @@
-a16431a_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensity_floor,protocol3_action
+id,area_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensity_floor,protocol3_action
 20190611_1331_icab_icab_R_no_q1,1000,10,TRUE,median,"",15,0,abort
 20190611_1331_icab_icab_R_no_q2,1000,10,TRUE,median,"",15,0,abort
 20190611_1331_icab_icab_R_no_q3,1000,10,TRUE,median,"",15,0,abort
