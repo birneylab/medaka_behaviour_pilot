@@ -53,9 +53,8 @@ process track_video {
         """
 }
 
-process assign_ref_test {
-    // determine which blob is the reference fish
-    label "r_tidyverse_datatable"
+process unpack_tracking_results {
+    label "python_opencv_numpy_pandas"
     tag "${meta.id}"
 
     input:
@@ -67,7 +66,75 @@ process assign_ref_test {
     output:
         tuple(
             val(meta),
-            path("${meta.id}_traj.csv.gz")
+            path("${meta.id}_traj.csv.gz"),
+            path("${meta.id}_meta.json")
+        )
+
+
+    script:
+        """
+        #!/usr/bin/env python3
+
+        import json
+        import numpy as np
+        import pandas as pd
+        from pathlib import Path
+
+        # sometimes the without_gaps.npy file is not created if the trajectories
+        # are already without gaps
+        f = Path("${session_folder}/trajectories/without_gaps.npy")
+        skip_prob = False
+        if not f.is_file():
+            f = Path("${session_folder}/trajectories/with_gaps.npy")
+            skip_prob = True # no id_probabilities if there are no gaps!
+        assert f.is_file()
+
+        # arr.item() needed to unpack 0-dimensional array
+        arr = np.load(f, allow_pickle = True).item()
+        traj = arr["trajectories"] # (N_frames, N_animals, 2)
+        if not skip_prob:
+            id_prob = arr["id_probabilities"] # (N_frames, N_animals, 1)
+        else:
+            id_prob = np.ones([traj.shape[0], 2, 1]) # set all id_prob to 1 if there are no gaps
+
+        df = pd.DataFrame(
+            np.concatenate(
+                (
+                    traj.reshape(traj.shape[0], 4),
+                    id_prob.squeeze()
+                ),
+                axis = 1
+            ),
+            columns = ["x1", "y1", "x2", "y2", "id_prob1", "id_prob2"]
+        )
+
+        meta = {
+            "id": "${meta.id}",
+            "fps": arr["frames_per_second"],
+            "version": arr["version"]
+        } | arr["stats"] # | is the union operator for dicttionaries
+
+        df.to_csv("${meta.id}_traj.csv.gz", index = False)
+        with open("${meta.id}_meta.json", "w") as f_out:
+            json.dump(meta, f_out)
+        """
+}
+
+process assign_ref_test {
+    // determine which blob is the reference fish
+    label "r_tidyverse_datatable"
+    tag "${meta.id}"
+
+    input:
+        tuple(
+            val(meta),
+            path(traj)
+        )
+
+    output:
+        tuple(
+            val(meta),
+            path("${meta.id}_traj_with_identities.csv.gz")
         )
 
     script:
@@ -78,17 +145,8 @@ process assign_ref_test {
 
         ref <- "${meta.ref}"
         test <- "${meta.test}"
+        traj <- fread("${traj}")
         cab_coords <- ${meta.ref == meta.test ? "NA" : "\"${meta.cab_coords}\"" }
-
-        traj_file_wo_gaps <- "${session_folder}/trajectories/without_gaps_csv/trajectories.csv"
-        traj_file_with_gaps <- "${session_folder}/trajectories/with_gaps_csv/trajectories.csv"
-        if (file.exists(traj_file_wo_gaps)) {
-            message("Using trajectories without gaps")
-            traj <- fread(traj_file_wo_gaps)
-        } else {
-            message("Using trajectories with gaps")
-            traj <- fread(traj_file_with_gaps)
-        }
 
         first_frame <- traj[!is.na(x1) & !is.na(x2) & !is.na(y1) & !is.na(y2)][1,]
         if (ref == test) {
@@ -113,16 +171,20 @@ process assign_ref_test {
             colnames(traj)[colnames(traj) == "x2"] <- "test_x"
             colnames(traj)[colnames(traj) == "y1"] <- "ref_y"
             colnames(traj)[colnames(traj) == "y2"] <- "test_y"
+            colnames(traj)[colnames(traj) == "id_prob1"] <- "ref_id_prob"
+            colnames(traj)[colnames(traj) == "id_prob2"] <- "test_id_prob"
         } else if (idx == 2) {
             colnames(traj)[colnames(traj) == "x1"] <- "test_x"
             colnames(traj)[colnames(traj) == "x2"] <- "ref_x"
             colnames(traj)[colnames(traj) == "y1"] <- "test_y"
             colnames(traj)[colnames(traj) == "y2"] <- "ref_y"
+            colnames(traj)[colnames(traj) == "id_prob1"] <- "test_id_prob"
+            colnames(traj)[colnames(traj) == "id_prob2"] <- "ref_id_prob"
         } else {
             stop("Index not recognised")
         }
 
-        fwrite(traj, "${meta.id}_traj.csv.gz")
+        fwrite(traj, "${meta.id}_traj_with_identities.csv.gz")
         """
 }
 
@@ -204,59 +266,29 @@ process visualise_identities {
         """
 }
 
-process check_tracked_frames {
-    // check the proportion of frames correctly tracked per video
-    label "r_tidyverse_datatable"
-    tag "${meta.id}"
+process aggregate_tracking_stats {
+    // creates a dataset of tracking statistics for further exploration
+    label "python_opencv_numpy_pandas"
 
     input:
         tuple(
             val(meta),
-            path(traj)
+            path(stats)
         )
 
     output:
-        tuple(
-            val(meta),
-            path("${meta.id}_tracked_frac.csv.gz")
-        )
+        path("tracking_stats.csv.gz")
 
     script:
         """
-        #!/usr/bin/env Rscript
+        #!/usr/bin/env python3
 
-        library("data.table")
+        import json
+        import glob
 
-        df <- fread("${traj}")
-        df <- df[
-            , .(
-                id = "${meta.id}",
-                tracked_frac = mean(!is.na(ref_x) & !is.na(ref_y) & !is.na(test_x) & !is.na(test_y))
-            )
-        ]
-        fwrite(df, "${meta.id}_tracked_frac.csv.gz")
-        """
-}
-
-process aggregate_tracking_accuracy {
-    // creates a dataset of tracking accuracy for further exploration
-    label "r_tidyverse_datatable"
-
-    input:
-        path(acc)
-
-    output:
-        path("tracking_accuracy.csv.gz")
-
-    script:
-        """
-        #!/usr/bin/env Rscript
-
-        library("data.table")
-
-        f_list <- list.files(pattern = ".*_tracked_frac.csv.gz")
-        df <- lapply(f_list, fread) |> rbindlist()
-        fwrite(df, "tracking_accuracy.csv.gz")
+        f_list = glob.glob("*.json")
+        df = pd.DataFrame([json.load(f) for f in f_list])
+        df.to_csv("tracking_stats.csv.gz", header = False)
         """
 }
 
@@ -279,12 +311,8 @@ workflow TRACKING {
         track_video.out
         .map { meta, session, traj -> [meta, session] }
         .set { tracking_sessions }
-        assign_ref_test ( tracking_sessions )
+        unpack_tracking_results ( tracking_sessions )
+        assign_ref_test ( unpack_tracking_results.out.map { it[0,1] } )
         visualise_identities ( track_video_in_ch.join ( assign_ref_test.out, by: 0 ) )
-        check_tracked_frames ( assign_ref_test.out )
-        check_tracked_frames.out
-        .map { meta, acc -> acc }
-        .collect ()
-        .set { aggregate_tracking_accuracy_in }
-        aggregate_tracking_accuracy ( aggregate_tracking_accuracy_in )
+        aggregate_tracking_stats ( unpack_tracking_results.out.map { it[2] }.collect() )
 }
