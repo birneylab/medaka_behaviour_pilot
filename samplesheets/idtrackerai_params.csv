@@ -1,4 +1,4 @@
-id,area_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensity_floor,protocol3_action
+a16431a_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensity_floor,protocol3_action
 20190611_1331_icab_icab_R_no_q1,1000,10,TRUE,median,"",15,0,abort
 20190611_1331_icab_icab_R_no_q2,1000,10,TRUE,median,"",15,0,abort
 20190611_1331_icab_icab_R_no_q3,1000,10,TRUE,median,"",15,0,abort
@@ -568,7 +568,7 @@ id,area_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensi
 20190616_1441_icab_hni_L_of_q3,1000,10,TRUE,median,Right,15,0,abort
 20190616_1441_icab_hni_L_of_q4,1000,10,TRUE,median,Bottom,15,0,abort
 20190616_1506_icab_hni_L_no_q1,1000,10,TRUE,median,Top,15,0,abort
-20190616_1506_icab_hni_L_no_q2,1000,10,TRUE,median,Left,15,0,abort
+20190616_1506_icab_hni_L_no_q2,1000,10,TRUE,median,Left,40,0,abort
 20190616_1506_icab_hni_L_no_q3,1000,10,TRUE,median,Top,15,0,abort
 20190616_1506_icab_hni_L_no_q4,1000,10,TRUE,median,Top,15,0,abort
 20190616_1506_icab_hni_L_of_q1,1000,10,TRUE,median,Left,15,0,abort
@@ -578,7 +578,7 @@ id,area_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensi
 20190616_1531_icab_hdr_L_no_q1,1000,10,TRUE,max,Top,15,0,abort
 20190616_1531_icab_hdr_L_no_q2,1000,10,TRUE,median,Top,15,0,abort
 20190616_1531_icab_hdr_L_no_q3,1000,10,TRUE,median,Top,15,0,abort
-20190616_1531_icab_hdr_L_no_q4,1000,10,TRUE,median,Top,15,0,abort
+20190616_1531_icab_hdr_L_no_q4,1000,10,TRUE,max,Top,30,0,abort
 20190616_1531_icab_hdr_L_of_q1,1000,10,TRUE,median,Right,15,0,abort
 20190616_1531_icab_hdr_L_of_q2,1000,10,TRUE,median,Top,15,0,abort
 20190616_1531_icab_hdr_L_of_q3,1000,10,TRUE,median,Left,15,0,abort

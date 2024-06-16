@@ -275,10 +275,7 @@ process aggregate_tracking_stats {
     label "python_opencv_numpy_pandas"
 
     input:
-        tuple(
-            val(meta),
-            path(stats)
-        )
+        path(stats)
 
     output:
         path("tracking_stats.csv.gz")
@@ -292,8 +289,8 @@ process aggregate_tracking_stats {
         import pandas as pd
 
         f_list = glob.glob("*.json")
-        df = pd.DataFrame([json.load(f) for f in f_list])
-        df.to_csv("tracking_stats.csv.gz", header = False)
+        df = pd.DataFrame([json.load(open(f)) for f in f_list])
+        df.to_csv("tracking_stats.csv.gz", index = False)
         """
 }
 
