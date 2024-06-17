@@ -147,13 +147,15 @@ process assign_ref_test {
         ref <- "${meta.ref}"
         test <- "${meta.test}"
         traj <- fread("${traj}")
-        cab_coords <- ${meta.ref == meta.test ? "NA" : "\"${cab_coords}\"" }
+        cab_coords <- "${cab_coords}"
 
         first_frame <- traj[!is.na(x1) & !is.na(x2) & !is.na(y1) & !is.na(y2)][1,]
         if (ref == test) {
             message("Ref is the same as test")
+            stopifnot(cab_coords == "")
             idx <- 1
         } else {
+            stopifnot(cab_coords %in% c("Top", "Bottom", "Left", "Right"))
             if (cab_coords == "Top") {
                 idx <- which.min(c(first_frame[["y1"]], first_frame[["y2"]]))
             } else if (cab_coords == "Bottom") {
@@ -329,6 +331,7 @@ workflow TRACKING {
         .map { meta, traj, stats -> [meta.id, meta, traj] }
         .join ( cab_coords, by: 0, failOnDuplicate: true, failOnMismatch: true )
         .map { key, meta, traj, cab_coords -> [meta, traj, cab_coords] }
+        . { meta, traj, cab_coords -> meta.test }
         .set { assign_ref_test_in_ch }
 
         assign_ref_test ( assign_ref_test_in_ch )
