@@ -238,6 +238,7 @@ workflow PREPROCESSING {
                 vid
             ]
         }
+        .view()
         .set { split_videos_in }
         split_videos ( split_videos_in )
 
