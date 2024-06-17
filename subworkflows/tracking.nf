@@ -320,7 +320,10 @@ workflow TRACKING {
 
         unpack_tracking_results ( tracking_sessions )
         
-        Channel.fromPath ( params.cab_coords ).set { cab_coords }
+        Channel.fromPath ( params.cab_coords )
+        .splitCsv ( header: true )
+        .map { [it.id, it.cab_coords] }
+        .set { cab_coords }
         
         unpack_tracking_results.out
         .map { it[0,1] }
