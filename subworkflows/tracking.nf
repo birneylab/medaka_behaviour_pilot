@@ -128,7 +128,8 @@ process assign_ref_test {
     input:
         tuple(
             val(meta),
-            path(traj)
+            path(traj),
+            val(cab_coords)
         )
 
     output:
@@ -146,7 +147,7 @@ process assign_ref_test {
         ref <- "${meta.ref}"
         test <- "${meta.test}"
         traj <- fread("${traj}")
-        cab_coords <- ${meta.ref == meta.test ? "NA" : "\"${meta.cab_coords}\"" }
+        cab_coords <- ${meta.ref == meta.test ? "NA" : "\"${cab_coords}\"" }
 
         first_frame <- traj[!is.na(x1) & !is.na(x2) & !is.na(y1) & !is.na(y2)][1,]
         if (ref == test) {
@@ -304,17 +305,29 @@ workflow TRACKING {
         .splitCsv ( header: true )
         .map { meta -> [meta.id, meta] }
         .set { tracking_params }
+        
         split_vids
         .map { meta, vid -> [meta.id, meta, vid] }
         .join ( tracking_params, by: 0, failOnDuplicate: true, failOnMismatch: true )
         .map { key, meta, vid, meta2 -> [meta + meta2, vid] }
         .set { track_video_in_ch }
+
         track_video ( track_video_in_ch )
+        
         track_video.out
         .map { meta, session, traj -> [meta, session] }
         .set { tracking_sessions }
+
         unpack_tracking_results ( tracking_sessions )
-        assign_ref_test ( unpack_tracking_results.out.map { it[0,1] } )
+        
+        Channel.fromPath ( params.cab_coords ).set { cab_coords }
+        
+        unpack_tracking_results.out
+        .map { it[0,1] }
+        .join ( cab_coords, by: 0, failOnDuplicate: true, failOnMismatch: true )
+        .set { assign_ref_test_in_ch }
+
+        assign_ref_test ( assign_ref_test_in_ch )
         visualise_identities ( track_video_in_ch.join ( assign_ref_test.out, by: 0 ) )
         aggregate_tracking_stats ( unpack_tracking_results.out.map { it[2] }.collect() )
 }
