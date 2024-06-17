@@ -306,7 +306,7 @@ workflow TRACKING {
         .set { tracking_params }
         split_vids
         .map { meta, vid -> [meta.id, meta, vid] }
-        .join ( tracking_params, by: 0 )
+        .join ( tracking_params, by: 0, failOnDuplicate: true, failOnMismatch: true )
         .map { key, meta, vid, meta2 -> [meta + meta2, vid] }
         .set { track_video_in_ch }
         track_video ( track_video_in_ch )
