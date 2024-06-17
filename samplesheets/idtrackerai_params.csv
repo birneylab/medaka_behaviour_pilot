@@ -35,7 +35,7 @@ id,area_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensi
 20190611_1628_icab_hdr_R_no_q2,1000,50,TRUE,median,Right,15,0,abort
 20190611_1628_icab_hdr_R_no_q3,1000,50,TRUE,median,Bottom,15,0,abort
 20190611_1628_icab_hdr_R_no_q4,1000,50,TRUE,median,Right,15,0,abort
-20190611_1628_icab_hdr_R_of_q1,1000,50,TRUE,median,Top,15,0,abort
+20190611_1628_icab_hdr_R_of_q1,1000,100,TRUE,median,Top,15,0,abort
 20190611_1628_icab_hdr_R_of_q2,1000,50,TRUE,median,Top,15,0,abort
 20190611_1628_icab_hdr_R_of_q3,1000,100,TRUE,mean,Bottom,15,0,abort
 20190611_1628_icab_hdr_R_of_q4,1000,50,TRUE,median,Right,15,0,abort
@@ -43,10 +43,10 @@ id,area_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensi
 20190611_1658_icab_ho5_R_no_q2,1000,50,TRUE,median,Left,15,0,abort
 20190611_1658_icab_ho5_R_no_q3,1000,50,TRUE,median,Top,15,0,abort
 20190611_1658_icab_ho5_R_no_q4,1000,50,TRUE,median,Top,15,0,abort
-20190611_1658_icab_ho5_R_of_q1,1000,10,TRUE,median,Top,15,0,abort
-20190611_1658_icab_ho5_R_of_q2,1000,50,TRUE,median,Top,15,0,abort
+20190611_1658_icab_ho5_R_of_q1,1000,100,TRUE,median,Top,15,0,abort
+20190611_1658_icab_ho5_R_of_q2,1000,100,TRUE,median,Top,15,0,abort
 20190611_1658_icab_ho5_R_of_q3,1000,50,TRUE,median,Top,15,0,abort
-20190611_1658_icab_ho5_R_of_q4,1000,50,TRUE,median,Top,15,0,abort
+20190611_1658_icab_ho5_R_of_q4,1000,100,TRUE,median,Top,15,0,abort
 20190612_0952_icab_icab_R_no_q1,1000,50,TRUE,median,"",15,0,abort
 20190612_0952_icab_icab_R_no_q2,1000,50,TRUE,median,"",15,0,abort
 20190612_0952_icab_icab_R_no_q3,1000,50,TRUE,median,"",15,0,abort
@@ -81,7 +81,7 @@ id,area_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensi
 20190612_1236_icab_kaga_R_of_q4,1000,50,TRUE,median,Bottom,15,0,abort
 20190612_1326_icab_kaga_R_no_q1,1000,50,TRUE,median,Top,15,0,abort
 20190612_1326_icab_kaga_R_no_q2,1000,50,TRUE,median,Top,15,0,abort
-20190612_1326_icab_kaga_R_no_q3,1000,50,TRUE,median,Right,15,0,abort
+20190612_1326_icab_kaga_R_no_q3,1000,100,TRUE,median,Right,15,0,abort
 20190612_1326_icab_kaga_R_no_q4,1000,10,TRUE,max,Left,15,0,abort
 20190612_1326_icab_kaga_R_of_q1,1000,50,TRUE,median,Right,15,0,abort
 20190612_1326_icab_kaga_R_of_q2,1000,50,TRUE,median,Left,15,0,abort
@@ -513,7 +513,7 @@ id,area_ceiling,area_floor,bgsub,bgsub_mode,cab_coords,intensity_ceiling,intensi
 20190616_1135_icab_kaga_R_of_q4,1000,50,TRUE,median,Top,15,0,abort
 20190616_1210_icab_icab_R_no_q1,1000,50,TRUE,median,"",15,0,abort
 20190616_1210_icab_icab_R_no_q2,1000,50,TRUE,median,"",15,0,abort
-20190616_1210_icab_icab_R_no_q3,1000,50,TRUE,median,"",15,0,abort
+20190616_1210_icab_icab_R_no_q3,1000,100,TRUE,median,"",15,0,abort
 20190616_1210_icab_icab_R_no_q4,1000,50,TRUE,median,"",15,0,abort
 20190616_1210_icab_icab_R_of_q1,1000,50,TRUE,median,"",15,0,abort
 20190616_1210_icab_icab_R_of_q2,1000,50,TRUE,median,"",15,0,abort
