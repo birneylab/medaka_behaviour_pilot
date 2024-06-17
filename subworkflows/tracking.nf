@@ -331,7 +331,6 @@ workflow TRACKING {
         .map { meta, traj, stats -> [meta.id, meta, traj] }
         .join ( cab_coords, by: 0, failOnDuplicate: true, failOnMismatch: true )
         .map { key, meta, traj, cab_coords -> [meta, traj, cab_coords] }
-        . { meta, traj, cab_coords -> meta.test }
         .set { assign_ref_test_in_ch }
 
         assign_ref_test ( assign_ref_test_in_ch )
