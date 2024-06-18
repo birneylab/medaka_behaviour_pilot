@@ -310,10 +310,10 @@ process visualise_identities {
                 test_y = int(df.iloc[j]["test_y"]) + y_offset
                 
                 frame = cv.circle(
-                    frame, (ref_x, ref_y), circle_size, colors["ref"], -1
+                    frame, (ref_x, ref_y), circle_size, colors["red"], -1
                 )
                 frame = cv.circle(
-                    frame, (test_x, test_y), circle_size, colors["test"], -1
+                    frame, (test_x, test_y), circle_size, colors["black"], -1
                 )
                 frame = cv.putText(
                     frame,
