@@ -252,10 +252,12 @@ process visualise_identities {
         ) 
         
         df_dict = {"of": {}, "no": {}}
+        skip_q3 = ("${video_in.baseName - "_flipped"}" == "20190616_1227_icab_kaga_R")
         for a, q in itertools.product(("of", "no"), range(1, 5)):
-            df_dict[a][str(q)] = pd.read_csv(
-                "${video_in.baseName}_{a}_q{q}_traj_with_identities.csv.gz".format(a = a, q = q)
-            )
+            f = "${video_in.baseName - "_flipped"}_{a}_q{q}_traj_with_identities.csv.gz".format(a = a, q = q)
+            if skip_q3 and q == 3:
+                continue
+            df_dict[a][str(q)] = pd.read_csv(f)
 
             if a == "of":
                 start = of_start
@@ -331,6 +333,8 @@ process visualise_identities {
                 return frame
 
             for q in range(1, 5):
+                if skip_q3 and q == 3:
+                    continue
                 if not df_dict[a][str(q)].loc[i][["ref_x", "ref_y"]].isna().any():
                     ref_x = int(df_dict[a][str(q)].loc[i]["ref_x"])
                     ref_y = int(df_dict[a][str(q)].loc[i]["ref_y"])
@@ -468,7 +472,6 @@ workflow TRACKING {
         .groupTuple ( by: 0 )
         .join ( raw_vids.map { meta, vid -> [ meta.id, meta, vid ] } , by: 0 )
         .map { key, traj, meta, vid -> [ meta, vid, traj ] }
-        .first()
         .set { visualise_identities_in }
         visualise_identities ( visualise_identities_in )
 }
