@@ -12,8 +12,8 @@ id,area_ceiling,area_floor,bgsub,bgsub_mode,intensity_ceiling,intensity_floor,pr
 20190611_1410_icab_kaga_R_no_q3,1000,50,TRUE,median,15,0,abort
 20190611_1410_icab_kaga_R_no_q4,1000,50,TRUE,median,15,0,abort
 20190611_1410_icab_kaga_R_of_q1,1000,50,TRUE,median,15,0,abort
-20190611_1410_icab_kaga_R_of_q2,1000,50,TRUE,median,15,0,abort
-20190611_1410_icab_kaga_R_of_q3,1000,50,TRUE,median,15,0,abort
+20190611_1410_icab_kaga_R_of_q2,1000,50,TRUE,max,40,0,abort
+20190611_1410_icab_kaga_R_of_q3,1000,50,TRUE,max,40,0,abort
 20190611_1410_icab_kaga_R_of_q4,1000,10,TRUE,mean,40,0,abort
 20190611_1454_icab_hni_R_no_q1,1000,50,TRUE,median,15,0,abort
 20190611_1454_icab_hni_R_no_q2,1000,50,TRUE,median,15,0,abort
