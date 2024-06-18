@@ -213,6 +213,7 @@ process visualise_identities {
         """
         #!/usr/bin/env python3
 
+        import itertools
         import cv2 as cv
         import numpy as np
         import pandas as pd
@@ -230,34 +231,83 @@ process visualise_identities {
         of_end = ${meta.of_end}
         no_start = ${meta.no_start}
         no_end = ${meta.no_end}
-        adj_top = ${meta.adj_top_of}
-        adj_right = ${meta.adj_right_of}
+        adj_top_of = ${meta.adj_top_of}
+        adj_right_of = ${meta.adj_right_of}
+        adj_top_no = ${meta.adj_top_no}
+        adj_right_no = ${meta.adj_right_no}
 
         cap = cv.VideoCapture("${video_in}")
         n_frames = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
         fps = int(cap.get(cv.CAP_PROP_FPS))
         w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
-        mid_x = round(((w - 1) / 2) + adj_right)
-        mid_y = round(((h - 1) / 2) + adj_top)
+        mid_x_of = round(((w - 1) / 2) + adj_right_of)
+        mid_y_of = round(((h - 1) / 2) + adj_top_of)
+        mid_x_no = round(((w - 1) / 2) + adj_right_no)
+        mid_y_no = round(((h - 1) / 2) + adj_top_no)
 
         fourcc = cv.VideoWriter_fourcc('h', '2', '6', '4')
         out = cv.VideoWriter(
             "${meta.id}_identities.avi", fourcc, fps, (w, h), isColor = True
         ) 
+        
+        df_dict = {"of": {}, "no": {}}
+        for a, q in itertools.product(("of", "no"), range(1, 5)):
+            df_dict[a][str(q)] = pd.read_csv(
+                "${video_in.baseName}_{a}_q{q}_traj_with_identities.csv.gz".format(a = a, q = q)
+            )
+
+            if a == "of":
+                start = of_start
+                mid_x = mid_x_of
+                mid_y = mid_y_of
+            elif a == "no":
+                start = no_start
+                mid_x = mid_x_no
+                mid_y = mid_y_no
+            else:
+                raise AssertionError
+
+            if q in [1, 2]:
+                y_offset = 0
+            elif q in [3, 4]:
+                y_offset = mid_y
+            else:
+                raise AssertionError
+            
+            if q in [2, 3]:
+                x_offset = 0
+            elif q in [1, 4]:
+                x_offset = mid_x
+            else:
+                raise AssertionError
+
+            df_dict[a][str(q)].index = range(start, df_dict[a][str(q)].shape[0] + start)
+            df_dict[a][str(q)][["ref_x", "test_x"]] += x_offset
+            df_dict[a][str(q)][["ref_y", "test_y"]] += y_offset
 
         def add_coloured_split_lines(frame, i):
             # Add colored split lines that indicate the part of assay we are in
             if i < of_start:
                 line_color = colors["red"]
+                mid_x = mid_x_of
+                mid_y = mid_y_of
             elif i < of_end:
                 line_color = colors["green"]
+                mid_x = mid_x_of
+                mid_y = mid_y_of
             elif i < no_start:
                 line_color = colors["red"]
+                mid_x = mid_x_no
+                mid_y = mid_y_no
             elif i < no_end:
                 line_color = colors["green"]
+                mid_x = mid_x_no
+                mid_y = mid_y_no
             else:
                 line_color = colors["red"]
+                mid_x = mid_x_no
+                mid_y = mid_y_no
             start_point = (mid_x, 0)
             end_point = (mid_x, h)
             thickness = 1
@@ -273,66 +323,46 @@ process visualise_identities {
                 return frame
             elif i < of_end:
                 a = "of"
-                start = of_start
-                end = of_end
             elif i < no_start:
                 return frame
             elif i < no_end:
                 a = "no"
-                start = no_start
-                end = no_end
             else:
                 return frame
 
-            j = i - start # frame counter for traj
             for q in range(1, 5):
-                df = pd.read_csv(
-                    "${video_in.baseName}_{a}_q{q}_traj_with_identities.csv.gz".format(a = a, q = q)
-                )
-                
-                if q in [1, 2]:
-                    x_offset = 0
-                elif q in [3, 4]:
-                    x_offset = mid_x
-                else:
-                    raise AssertionError
-                
-                if q in [2, 3]:
-                    y_offset = 0
-                elif q in [1, 4]:
-                    y_offset = mid_y
-                else:
-                    raise AssertionError
-                
-                ref_x = int(df.iloc[j]["ref_x"]) + x_offset
-                ref_y = int(df.iloc[j]["ref_y"]) + y_offset
-                test_x = int(df.iloc[j]["test_x"]) + x_offset
-                test_y = int(df.iloc[j]["test_y"]) + y_offset
-                
-                frame = cv.circle(
-                    frame, (ref_x, ref_y), circle_size, colors["red"], -1
-                )
-                frame = cv.circle(
-                    frame, (test_x, test_y), circle_size, colors["black"], -1
-                )
-                frame = cv.putText(
-                    frame,
-                    "ref",
-                    (ref_x, ref_y),
-                    font,
-                    font_size,
-                    colors["red"],
-                    font_width,
-                )
-                frame = cv.putText(
-                    frame,
-                    "test",
-                    (test_x, test_y),
-                    font,
-                    font_size,
-                    colors["black"],
-                    font_width,
-                )
+                if not df_dict[a][str(q)].loc[i][["ref_x", "ref_y"]].isna().any():
+                    ref_x = int(df_dict[a][str(q)].loc[i]["ref_x"])
+                    ref_y = int(df_dict[a][str(q)].loc[i]["ref_y"])
+                    frame = cv.circle(
+                        frame, (ref_x, ref_y), circle_size, colors["red"], -1
+                    )
+                    frame = cv.putText(
+                        frame,
+                        "ref",
+                        (ref_x, ref_y),
+                        font,
+                        font_size,
+                        colors["red"],
+                        font_width,
+                    )
+
+                if not df_dict[a][str(q)].loc[i][["test_x", "test_y"]].isna().any():
+                    test_x = int(df_dict[a][str(q)].loc[i]["test_x"])
+                    test_y = int(df_dict[a][str(q)].loc[i]["test_y"])
+                    frame = cv.circle(
+                        frame, (test_x, test_y), circle_size, colors["black"], -1
+                    )
+                    
+                    frame = cv.putText(
+                        frame,
+                        "test",
+                        (test_x, test_y),
+                        font,
+                        font_size,
+                        colors["black"],
+                        font_width,
+                    )
 
             return frame
 
@@ -340,7 +370,7 @@ process visualise_identities {
             frame = cv.putText(
                 frame,
                 str(i),
-                (0, 0),
+                (0, 10),
                 font,
                 font_size,
                 colors["black"],
