@@ -234,7 +234,7 @@ process visualise_identities {
         adj_right = ${meta.adj_right_of}
 
         cap = cv.VideoCapture("${video_in}")
-        n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        n_frames = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
         fps = int(cap.get(cv.CAP_PROP_FPS))
         w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
         h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
@@ -243,7 +243,7 @@ process visualise_identities {
 
         fourcc = cv.VideoWriter_fourcc('h', '2', '6', '4')
         out = cv.VideoWriter(
-            "${meta.id}_identities.avi", fourcc, fps, size, isColor = True
+            "${meta.id}_identities.avi", fourcc, fps, (w, h), isColor = True
         ) 
 
         def add_coloured_split_lines(frame, i):
