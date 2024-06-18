@@ -287,7 +287,7 @@ process visualise_identities {
             j = i - start # frame counter for traj
             for q in range(1, 5):
                 df = pd.read_csv(
-                    "${video_in.baseName}_{a}_{q}".format(a = a, q = q)
+                    "${video_in.baseName}_{a}_q{q}_traj_with_identities.csv.gz".format(a = a, q = q)
                 )
                 
                 if q in [1, 2]:
