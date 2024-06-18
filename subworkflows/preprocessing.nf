@@ -242,10 +242,11 @@ workflow PREPROCESSING {
         split_videos ( split_videos_in )
 
     emit:
-        split_videos.out
-        .filter {
-            // no fish in the video
-            meta, vid -> 
-            !(meta.id ==~ /20190616_1227_icab_kaga_R_(of|no)_q3/)
-        }
+        split_videos = split_videos.out
+            .filter {
+                // no fish in the video
+                meta, vid -> 
+                !(meta.id ==~ /20190616_1227_icab_kaga_R_(of|no)_q3/)
+            }
+        raw_videos = videos_adjusted
 }

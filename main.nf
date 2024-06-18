@@ -21,22 +21,22 @@ workflow  TRACK_VIDEOS {
     .map { [it, it.video] }
     .set { in_vid_ch }
     PREPROCESSING ( in_vid_ch )
-    TRACKING ( PREPROCESSING.out )
+    TRACKING ( PREPROCESSING.out.split_videos, PREPROCESSING.out.raw_videos )
 }
 
 workflow RUN_HMM {
-    // this is decoupled from the above
+    // this is voluntarily decoupled from the tracking
     Channel.fromPath ( params.input_traj )
     .splitCsv ( header: true )
-    .map { [it, it.video] }
+    .map { [it, it.trajectories_file ] }
     .first()
     .set { in_vid_ch }
-    //HMM ()
+    HMM ()
 }
 
 workflow {
     // workflows are decoupled, just comment out what you don't want to run
     // and provide input files appropriately
     TRACK_VIDEOS()
-    //HMM()
+    //RUN_HMM()
 }

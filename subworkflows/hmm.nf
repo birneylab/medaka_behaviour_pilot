@@ -10,7 +10,8 @@ Mail: saul@ebi.ac.uk
 */
 
 process compute_metrics {
-    // compute metrics to feed to the hmm from the trajectories
+    // compute metrics to feed to the hmm from the trajectories:
+    // angles and distances
     label "r_tidyverse_datatable"
 
     input:

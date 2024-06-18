@@ -206,7 +206,7 @@ process visualise_identities {
     output:
         tuple(
             val(meta),
-            path("${meta.id}_identities.png")
+            path("${meta.id}_identities.avi")
         )
 
     script:
@@ -221,51 +221,144 @@ process visualise_identities {
         font_size = 0.3
         font_width = 1
         colors = dict(
-            ref = (0, 0, 255), # BGR red
-            test = (0, 0, 0), # BGR black
+            black = (0, 0, 0), # BGR black
+            red = (0, 0, 255), # BGR red
+            green = (0, 255, 0), # BGR green
         )
         font = cv.FONT_HERSHEY_SIMPLEX
+        of_start = ${meta.of_start}
+        of_end = ${meta.of_end}
+        no_start = ${meta.no_start}
+        no_end = ${meta.no_end}
+        adj_top = ${meta.adj_top_of}
+        adj_right = ${meta.adj_right_of}
+
         cap = cv.VideoCapture("${video_in}")
-        df = pd.read_csv("${traj}")
-        df["frame"] = range(0, df.shape[0])
-        df = df.dropna()
-        frame_number = int(df.iloc[0]["frame"])
-        cap.set(cv.CAP_PROP_POS_FRAMES, frame_number)
-        ret, frame = cap.read()
-        ref_x = int(df.iloc[0]["ref_x"])
-        ref_y = int(df.iloc[0]["ref_y"])
-        test_x = int(df.iloc[0]["test_x"])
-        test_y = int(df.iloc[0]["test_y"])
+        n_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        fps = int(cap.get(cv.CAP_PROP_FPS))
+        w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+        mid_x = round(((w - 1) / 2) + adj_right)
+        mid_y = round(((h - 1) / 2) + adj_top)
 
-        # add points showing the test and reference fish
-        cv.circle(
-            frame, (ref_x, ref_y), circle_size, colors["ref"], -1
-        )
-        cv.circle(
-            frame, (test_x, test_y), circle_size, colors["test"], -1
-        )
-        cv.putText(
-            frame,
-            "ref",
-            (ref_x, ref_y),
-            font,
-            font_size,
-            colors["ref"],
-            font_width,
-        )
-        cv.putText(
-            frame,
-            "test",
-            (test_x, test_y),
-            font,
-            font_size,
-            colors["test"],
-            font_width,
-        )
+        fourcc = cv.VideoWriter_fourcc('h', '2', '6', '4')
+        out = cv.VideoWriter(
+            "${meta.id}_identities.avi", fourcc, fps, size, isColor = True
+        ) 
 
-        # Write frame
-        cv.imwrite("${meta.id}_identities.png", frame)
+        def add_coloured_split_lines(frame, i):
+            # Add colored split lines that indicate the part of assay we are in
+            if i < of_start:
+                line_color = colors["red"]
+            elif i < of_end:
+                line_color = colors["green"]
+            elif i < no_start:
+                line_color = colors["red"]
+            elif i < no_end:
+                line_color = colors["green"]
+            else:
+                line_color = colors["red"]
+            start_point = (mid_x, 0)
+            end_point = (mid_x, h)
+            thickness = 1
+            frame = cv.line(frame, start_point, end_point, line_color, thickness)
+            start_point = (0, mid_y)
+            end_point = (w, mid_y)
+            frame = cv.line(frame, start_point, end_point, line_color, thickness)
+
+            return frame
+
+        def add_fish_coords(frame, i):
+            if i < of_start:
+                return frame
+            elif i < of_end:
+                a = "of"
+                start = of_start
+                end = of_end
+            elif i < no_start:
+                return frame
+            elif i < no_end:
+                a = "no"
+                start = no_start
+                end = no_end
+            else:
+                return frame
+
+            j = i - start # frame counter for traj
+            for q in range(1, 5):
+                df = pd.read_csv(
+                    "${video_in.baseName}_{a}_{q}".format(a = a, q = q)
+                )
+                
+                if q in [1, 2]:
+                    x_offset = 0
+                elif q in [3, 4]:
+                    x_offset = mid_x
+                else:
+                    raise AssertionError
+                
+                if q in [2, 3]:
+                    y_offset = 0
+                elif q in [1, 4]:
+                    y_offset = mid_y
+                else:
+                    raise AssertionError
+                
+                ref_x = int(df.iloc[j]["ref_x"]) + x_offset
+                ref_y = int(df.iloc[j]["ref_y"]) + y_offset
+                test_x = int(df.iloc[j]["test_x"]) + x_offset
+                test_y = int(df.iloc[j]["test_y"]) + y_offset
+                
+                frame = cv.circle(
+                    frame, (ref_x, ref_y), circle_size, colors["ref"], -1
+                )
+                frame = cv.circle(
+                    frame, (test_x, test_y), circle_size, colors["test"], -1
+                )
+                frame = cv.putText(
+                    frame,
+                    "ref",
+                    (ref_x, ref_y),
+                    font,
+                    font_size,
+                    colors["red"],
+                    font_width,
+                )
+                frame = cv.putText(
+                    frame,
+                    "test",
+                    (test_x, test_y),
+                    font,
+                    font_size,
+                    colors["black"],
+                    font_width,
+                )
+
+            return frame
+
+        def add_frame_counter(frame, i):
+            frame = cv.putText(
+                frame,
+                str(i),
+                (0, 0),
+                font,
+                font_size,
+                colors["black"],
+                font_width,
+            )
+
+            return frame
+        
+        for i in range(n_frames):
+            ret, frame = cap.read()
+            assert ret
+            frame = add_coloured_split_lines(frame, i)
+            frame = add_fish_coords(frame, i)
+            frame = add_frame_counter(frame, i)
+            out.write(frame)
+            
         cap.release()
+        out.release()
         """
 }
 
@@ -301,6 +394,7 @@ process aggregate_tracking_stats {
 workflow TRACKING {
     take:
         split_vids
+        raw_vids
     
     main:
         Channel.fromPath ( params.idtrackerai_params )
@@ -331,9 +425,20 @@ workflow TRACKING {
         .map { meta, traj, stats -> [meta.id, meta, traj] }
         .join ( cab_coords, by: 0, failOnDuplicate: true, failOnMismatch: true )
         .map { key, meta, traj, cab_coords -> [meta, traj, cab_coords] }
-        .set { assign_ref_test_in_ch }
+        .set { assign_ref_test_in }
 
-        assign_ref_test ( assign_ref_test_in_ch )
-        visualise_identities ( track_video_in_ch.join ( assign_ref_test.out, by: 0 ) )
+        assign_ref_test ( assign_ref_test_in )
         aggregate_tracking_stats ( unpack_tracking_results.out.map { it[2] }.collect() )
+
+        assign_ref_test.out
+        .map {
+             meta, traj ->
+             [ meta.id.replaceFirst(/_(of|no)_q(1|2|3|4)$/, ""), traj ]
+        }
+        .groupTuple ( by: 0 )
+        .join ( raw_vids.map { meta, vid -> [ meta.id, meta, vid ] } , by: 0 )
+        .map { key, traj, meta, vid -> [ meta, vid, traj ] }
+        .first()
+        .set { visualise_identities_in }
+        visualise_identities ( visualise_identities_in )
 }
