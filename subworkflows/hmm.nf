@@ -56,20 +56,20 @@ process compute_metrics {
         step_size_frames <- round(step_size_s * ${meta.fps})
         
         df <- fread("${traj}")
-        df[, frame_n := .N]
+        df[, frame_n := 1:.N]
         df[, time_s := frame_n/${meta.fps}]
-        df[ref_x_lag := lag(ref_x, step_size_frames)]
-        df[ref_y_lag := lag(ref_y, step_size_frames)]
-        df[test_x_lag := lag(test_x, step_size_frames)]
-        df[test_y_lag := lag(test_y, step_size_frames)]
-        df[ref_x_lag2 := lag(ref_x, step_size_frames * 2)]
-        df[ref_y_lag2 := lag(ref_y, step_size_frames * 2)]
-        df[test_x_lag2 := lag(test_x, step_size_frames * 2)]
-        df[test_y_lag2 := lag(test_y, step_size_frames * 2)]
-        df[ref_distance := get_dist(ref_x, ref_x_lag, ref_y, ref_y_lag)]
-        df[test_distance := get_dist(test_x, test_x_lag, test_y, test_y_lag)]
-        df[ref_angle := get_angle(ref_x, ref_x_lag, ref_x_lag2, ref_y, ref_y_lag, ref_y_lag2)]
-        df[test_angle := get_angle(test_x, test_x_lag, test_x_lag2, test_y, test_y_lag, test_y_lag2)]
+        df[, ref_x_lag := shift(ref_x, step_size_frames)]
+        df[, ref_y_lag := shift(ref_y, step_size_frames)]
+        df[, test_x_lag := shift(test_x, step_size_frames)]
+        df[, test_y_lag := shift(test_y, step_size_frames)]
+        df[, ref_x_lag2 := shift(ref_x, step_size_frames * 2)]
+        df[, ref_y_lag2 := shift(ref_y, step_size_frames * 2)]
+        df[, test_x_lag2 := shift(test_x, step_size_frames * 2)]
+        df[, test_y_lag2 := shift(test_y, step_size_frames * 2)]
+        df[, ref_distance := get_dist(ref_x, ref_x_lag, ref_y, ref_y_lag)]
+        df[, test_distance := get_dist(test_x, test_x_lag, test_y, test_y_lag)]
+        df[, ref_angle := get_angle(ref_x, ref_x_lag, ref_x_lag2, ref_y, ref_y_lag, ref_y_lag2)]
+        df[, test_angle := get_angle(test_x, test_x_lag, test_x_lag2, test_y, test_y_lag, test_y_lag2)]
         out <- df[
             , .(
                 frame_n, time_s, ref_x, ref_y, test_x, test_y, ref_distance, test_distance, ref_angle, test_angle
@@ -85,6 +85,14 @@ workflow HMM {
         in_ch
     
     main:
-        in_ch.view()
-        //compute_metrics ( in_ch )
+        in_ch.combine ( params.time_interval )
+        .map{
+            meta, traj, time_step ->
+            def new_meta = meta.clone()
+            new_meta.time_step = time_step
+            [ new_meta, traj, time_step ]
+        }
+        .first()
+        .set { metrics_in }
+        compute_metrics ( metrics_in )
 }

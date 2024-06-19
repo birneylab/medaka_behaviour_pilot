@@ -53,6 +53,6 @@ workflow RUN_HMM {
 workflow {
     // workflows are decoupled, just comment out what you don't want to run
     // and provide input files appropriately
-    TRACK_VIDEOS()
-    //RUN_HMM()
+    //TRACK_VIDEOS()
+    RUN_HMM()
 }
