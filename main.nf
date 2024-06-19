@@ -26,12 +26,28 @@ workflow  TRACK_VIDEOS {
 
 workflow RUN_HMM {
     // this is voluntarily decoupled from the tracking
-    Channel.fromPath ( params.input_traj )
+    Channel.fromPath ( params.input_hmm )
     .splitCsv ( header: true )
-    .map { [it, it.trajectories_file ] }
-    .first()
-    .set { in_vid_ch }
-    HMM ()
+    .map { [ it.id, it ] }
+    .set { traj }
+    
+    Channel.fromPath ( params.tracking_stats )
+    .splitCsv ( header: true )
+    .map { [ it.id, it ] }
+    .set { stats }
+    
+    traj.join ( stats, by: 0, failOnDuplicate: true, failOnMismatch: true )
+    .map {
+        key, traj_map, stat_map ->
+        def meta = [
+            id: key,
+            fps: stat_map.fps,
+        ]
+        [ meta, traj_map.traj_file ] 
+    }
+    .set { hmm_in }
+
+    HMM ( hmm_in )
 }
 
 workflow {

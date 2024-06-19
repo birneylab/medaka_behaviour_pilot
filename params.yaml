@@ -2,4 +2,6 @@ outdir: "/lts/research/birney/users/saul/nextflow/medaka_behaviour_pilot"
 input_tracking: "${projectDir}/samplesheets/samplesheet_tracking.csv"
 idtrackerai_params: "${projectDir}/samplesheets/idtrackerai_params.csv"
 cab_coords: "${projectDir}/samplesheets/cab_coords.csv"
+input_hmm: "${projectDir}/samplesheets/trajectories_for_hmm.csv"
+tracking_stats: "${projectDir}/samplesheets/tracking_stats.csv"
 time_interval: 0.08

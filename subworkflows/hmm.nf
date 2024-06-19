@@ -17,7 +17,8 @@ process compute_metrics {
     input:
         tuple(
             val(meta),
-            path(traj)
+            path(traj),
+            val(time_step)
         )
 
     output:
@@ -50,23 +51,30 @@ process compute_metrics {
             rad <- atan2(det, dot)
             return(rad)
         }
+
+        step_size_s <- ${time_step}
+        step_size_frames <- round(step_size_s * ${meta.fps})
         
         df <- fread("${traj}")
-        intervals <- seq(0, nrow(df), ${meta.fps} * ${params.time_interval})
-        # non-overlapping intervals instead than rolling window because this is how Ian did before
-        df <- df[intervals]
-        df[ref_x_lag := lag(ref_x)]
-        df[ref_y_lag := lag(ref_y)]
-        df[test_x_lag := lag(test_x)]
-        df[test_y_lag := lag(test_y)]
-        df[ref_x_lag2 := lag(ref_x, 2)]
-        df[ref_y_lag2 := lag(ref_y, 2)]
-        df[test_x_lag2 := lag(test_x, 2)]
-        df[test_y_lag2 := lag(test_y, 2)]
+        df[, frame_n := .N]
+        df[, time_s := frame_n/${meta.fps}]
+        df[ref_x_lag := lag(ref_x, step_size_frames)]
+        df[ref_y_lag := lag(ref_y, step_size_frames)]
+        df[test_x_lag := lag(test_x, step_size_frames)]
+        df[test_y_lag := lag(test_y, step_size_frames)]
+        df[ref_x_lag2 := lag(ref_x, step_size_frames * 2)]
+        df[ref_y_lag2 := lag(ref_y, step_size_frames * 2)]
+        df[test_x_lag2 := lag(test_x, step_size_frames * 2)]
+        df[test_y_lag2 := lag(test_y, step_size_frames * 2)]
         df[ref_distance := get_dist(ref_x, ref_x_lag, ref_y, ref_y_lag)]
         df[test_distance := get_dist(test_x, test_x_lag, test_y, test_y_lag)]
         df[ref_angle := get_angle(ref_x, ref_x_lag, ref_x_lag2, ref_y, ref_y_lag, ref_y_lag2)]
         df[test_angle := get_angle(test_x, test_x_lag, test_x_lag2, test_y, test_y_lag, test_y_lag2)]
+        out <- df[
+            , .(
+                frame_n, time_s, ref_x, ref_y, test_x, test_y, ref_distance, test_distance, ref_angle, test_angle
+            )
+        ]
 
         fwrite(df, "${meta.id}_metrics.csv.gz")
         """
@@ -78,4 +86,5 @@ workflow HMM {
     
     main:
         in_ch.view()
+        //compute_metrics ( in_ch )
 }
