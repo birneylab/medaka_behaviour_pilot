@@ -64,7 +64,7 @@ id,video,date,time,tank_side,of_start,of_end,no_start,no_end,fps,adj_top_of,adj_
 20190616_1110_icab_icab_L,/nfs/research/birney/users/saul/raw_data/behavioural_project/pilot/20190616_1110_icab_icab_L.avi,20190616,1110,L,1678,19678,20540,38540,30,5,5,5,-2,18378,18260,icab,icab
 20190616_1135_icab_kaga_R,/nfs/research/birney/users/saul/raw_data/behavioural_project/pilot/20190616_1135_icab_kaga_R.avi,20190616,1135,R,1932,19932,21151,39151,30,-4,4,-4,3,18549,18912,icab,kaga
 20190616_1210_icab_icab_R,/nfs/research/birney/users/saul/raw_data/behavioural_project/pilot/20190616_1210_icab_icab_R.avi,20190616,1210,R,2173,20173,21449,39449,30,-8,5,-8,5,18548,18487,icab,icab
-20190616_1227_icab_kaga_R,/nfs/research/birney/users/saul/raw_data/behavioural_project/pilot/20190616_1227_icab_kaga_R.avi,20190616,1227,R,2334,20334,21567,39567,30,-4,7,-10,6,18812,18152,icab,kaga
+20190616_1227_icab_kaga_R,/nfs/research/birney/users/saul/raw_data/behavioural_project/pilot/20190616_1227_icab_kaga_R.avi,20190616,1227,R,2334,20334,21753,39616,30,-4,7,-10,6,18812,18152,icab,kaga
 20190616_1256_icab_kaga_L,/nfs/research/birney/users/saul/raw_data/behavioural_project/pilot/20190616_1256_icab_kaga_L.avi,20190616,1256,L,2008,20008,21363,39363,30,5,2,4,-2,18868,18268,icab,kaga
 20190616_1325_icab_hni_R,/nfs/research/birney/users/saul/raw_data/behavioural_project/pilot/20190616_1325_icab_hni_R.avi,20190616,1325,R,2203,20203,21130,39130,30,-11,-4,-12,-3,18340,18279,icab,hni
 20190616_1351_icab_ho5_L,/nfs/research/birney/users/saul/raw_data/behavioural_project/pilot/20190616_1351_icab_ho5_L.avi,20190616,1351,L,2515,20515,21420,39420,30,4,-4,4,-4,18339,21862,icab,ho5
