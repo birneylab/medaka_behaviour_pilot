@@ -565,7 +565,7 @@ id,area_ceiling,area_floor,bgsub,bgsub_mode,intensity_ceiling,intensity_floor,pr
 20190616_1441_icab_hni_L_of_q2,1000,50,TRUE,median,15,0,abort
 20190616_1441_icab_hni_L_of_q3,1000,50,TRUE,median,15,0,abort
 20190616_1441_icab_hni_L_of_q4,1000,50,TRUE,median,15,0,abort
-20190616_1506_icab_hni_L_no_q1,1000,50,TRUE,mean,15,0,abort
+20190616_1506_icab_hni_L_no_q1,1000,50,TRUE,median,17,0,abort
 20190616_1506_icab_hni_L_no_q2,1000,60,TRUE,median,20,0,abort
 20190616_1506_icab_hni_L_no_q3,1000,50,TRUE,median,15,0,abort
 20190616_1506_icab_hni_L_no_q4,1000,50,TRUE,median,15,0,abort
