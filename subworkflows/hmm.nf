@@ -225,8 +225,8 @@ process run_hmm {
             id = re.sub("_metrics.csv.gz", "", f)
             df = pd.read_csv(f)
             df["id"] = id
-            df_ref = df[["id", "ref_distance", "ref_angle"]].rename(columns = col_renamer)
-            df_test = df[["id", "test_distance", "test_angle"]].rename(columns = col_renamer)
+            df_ref = df[["id", "ref_distance", "ref_angle"]].rename(columns = col_renamer).dropna()
+            df_test = df[["id", "test_distance", "test_angle"]].rename(columns = col_renamer).dropna()
             df_ref["id"] += "ref"
             df_test["id"] += "test"
 
