@@ -3,5 +3,6 @@ input_tracking: "${projectDir}/samplesheets/samplesheet_tracking.csv"
 idtrackerai_params: "${projectDir}/samplesheets/idtrackerai_params.csv"
 cab_coords: "${projectDir}/samplesheets/cab_coords.csv"
 input_hmm: "${projectDir}/samplesheets/trajectories_for_hmm.csv"
+split_vids: "${projectDir}/samplesheets/split_vids.csv"
 tracking_stats: "${projectDir}/samplesheets/tracking_stats.csv"
 time_interval: [0.08, 0.1, 0.15, 0.2, 0.3, 0.5, 1]

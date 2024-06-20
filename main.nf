@@ -52,12 +52,12 @@ workflow RUN_HMM {
     }
     .set { traj }
 
-    //HMM ( traj, split_vids )
+    HMM ( traj, split_vids )
 }
 
 workflow {
     // workflows are decoupled, just comment out what you don't want to run
-    // and provide input files appropriately
-    TRACK_VIDEOS()
-    //RUN_HMM()
+    // and provide input files appropriately, it is easier and more modular
+    //TRACK_VIDEOS()
+    RUN_HMM()
 }
