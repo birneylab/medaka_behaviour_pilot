@@ -31,6 +31,11 @@ workflow RUN_HMM {
     .map { [ it.id, it ] }
     .set { traj }
     
+    Channel.fromPath ( params.split_vids )
+    .splitCsv ( header: true )
+    .map { [ it.id, it.video ] }
+    .set { split_vids }
+    
     Channel.fromPath ( params.tracking_stats )
     .splitCsv ( header: true )
     .map { [ it.id, it ] }
@@ -45,14 +50,14 @@ workflow RUN_HMM {
         ]
         [ meta, traj_map.traj_file ] 
     }
-    .set { hmm_in }
+    .set { traj }
 
-    HMM ( hmm_in )
+    //HMM ( traj, split_vids )
 }
 
 workflow {
     // workflows are decoupled, just comment out what you don't want to run
     // and provide input files appropriately
-    //TRACK_VIDEOS()
-    RUN_HMM()
+    TRACK_VIDEOS()
+    //RUN_HMM()
 }

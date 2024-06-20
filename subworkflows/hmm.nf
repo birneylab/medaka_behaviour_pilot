@@ -83,11 +83,13 @@ process compute_metrics {
 
 process visualise_metrics {
     label "python_opencv_numpy_pandas"
+    queue "datamover"
 
     input:
         tuple(
             val(meta),
-            path(metrics)
+            path(metrics),
+            path(video_in)
         )
 
     output:
@@ -111,7 +113,7 @@ process visualise_metrics {
         
         fourcc = cv.VideoWriter_fourcc('h', '2', '6', '4')
         out = cv.VideoWriter(
-            "${meta.id}_identities.avi", fourcc, fps, (w, h), isColor = True
+            "${meta.id}_metrics.avi", fourcc, fps, (w, h), isColor = True
         ) 
 
         colors = dict(
@@ -170,17 +172,25 @@ process visualise_metrics {
 
 workflow HMM {
     take:
-        in_ch
+        traj
+        split_vids
     
     main:
-        in_ch.combine ( params.time_interval )
+        traj.combine ( params.time_interval )
         .map{
             meta, traj, time_step ->
             def new_meta = meta.clone()
             new_meta.time_step = time_step
             [ new_meta, traj, time_step ]
         }
-        .filter { meta.id == "20190611_1331_icab_icab_R_no_q1" }
+        .filter { meta, traj, time_step -> meta.id == "20190611_1331_icab_icab_R_no_q1" && time_step == 0.08 }
         .set { metrics_in }
         compute_metrics ( metrics_in )
+
+        compute_metrics.out
+        .map { meta, metrics -> [ meta.id, meta, metrics ] }
+        .join( split_vids, by: 0, failOnDuplicate: true, failOnMismatch: true )
+        .map { id, meta, metrics, vid -> [ meta, metrics, vid ] }
+        .set { visualise_metrics_in }
+        visualise_metrics ( visualise_metrics_in )
 }
