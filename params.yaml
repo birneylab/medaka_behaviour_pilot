@@ -6,3 +6,4 @@ input_hmm: "${projectDir}/samplesheets/trajectories_for_hmm.csv"
 split_vids: "${projectDir}/samplesheets/split_vids.csv"
 tracking_stats: "${projectDir}/samplesheets/tracking_stats.csv"
 time_interval: [0.08, 0.1, 0.15, 0.2, 0.3, 0.5, 1]
+n_states: [5, 10, 12, 14, 15, 16, 17, 18, 20]

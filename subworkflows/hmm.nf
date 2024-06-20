@@ -188,6 +188,66 @@ process visualise_metrics {
         """
 }
 
+process run_hmm {
+    label "python_hmmlearn_numpy_pandas"
+
+    input:
+        tuple(
+            val(meta),
+            path(metrics),
+            val(n_states)
+        )
+
+    output:
+        tuple(
+            val(meta),
+            path("${meta.id}_states${meta.n_states}_step${meta.time_step}_hmm.csv.gz")
+        )
+
+    script:
+        """
+        #!/usr/bin/env python3
+
+        from hmmlearn import hmm
+        import pandas as pd
+        import numpy as np
+        import glob
+        import re
+
+        col_renamer = {
+            "ref_distance": "distance",
+            "test_distance": "distance",
+            "ref_angle": "angle",
+            "test_angle": "angle",
+        }
+
+        def read_metric(f):
+            id = re.sub("_metrics.csv.gz", "", f)
+            df = pd.read_csv(f)
+            df["id"] = id
+            df_ref = df[["id", "ref_distance", "ref_angle"]].rename(columns = col_renamer)
+            df_test = df[["id", "test_distance", "test_angle"]].rename(columns = col_renamer)
+            df_ref["id"] += "ref"
+            df_test["id"] += "test"
+
+            return pd.concat([df_ref, df_test])
+
+        f_list = glob.glob("*_metrics.csv.gz")
+        df = pd.concat(
+            map(read_metric, f_list)
+        )
+        X = df[["distance", "angle"]].to_numpy()
+        l = df.groupby("id").size().to_numpy()
+
+        model = hmm.GaussianHMM(n_components=${n_states}, covariance_type="diag", n_iter=100)
+        model.fit(X, lengths = l)
+
+        out = df[["id"]]
+        out[["hmm_state"]] = model.predict(X, lengths = l)
+        out.to_csv("${meta.id}_states${meta.n_states}_step${meta.time_step}_hmm.csv.gz", index = False)
+        """
+}
+
 
 workflow HMM {
     take:
@@ -202,14 +262,27 @@ workflow HMM {
             new_meta.time_step = time_step
             [ new_meta, traj, time_step ]
         }
-        .filter { meta, traj, time_step -> meta.id == "20190611_1331_icab_icab_R_no_q1" && time_step == 0.08 }
         .set { metrics_in }
         compute_metrics ( metrics_in )
 
         compute_metrics.out
         .map { meta, metrics -> [ meta.id, meta, metrics ] }
-        .combine( split_vids.filter { id, vid -> id == "20190611_1331_icab_icab_R_no_q1" }, by: 0 )
+        .combine( split_vids, by: 0 )
         .map { id, meta, metrics, vid -> [ meta, metrics, vid ] }
         .set { visualise_metrics_in }
         visualise_metrics ( visualise_metrics_in )
+        
+        compute_metrics.out
+        .combine( params.n_states )
+        .map {
+            meta, metrics, n_states ->
+            def new_meta = meta.clone()
+            new_meta.n_states = n_states
+            def group_key = [meta.time_step, n_states]
+            [ group_key, new_meta, metrics, n_states ]
+        }
+        .groupTuple(by: 0)
+        .map { group_key, meta, metrics, n_states -> [ meta, metrics, n_states ] }
+        .set { hmm_in }
+        //run_hmm ( hmm_in )
 }
