@@ -13,6 +13,7 @@ process compute_metrics {
     // compute metrics to feed to the hmm from the trajectories:
     // angles and distances
     label "r_tidyverse_datatable"
+    queue "datamover"
 
     input:
         tuple(
@@ -80,6 +81,93 @@ process compute_metrics {
         """
 }
 
+process visualise_metrics {
+    label "python_opencv_numpy_pandas"
+
+    input:
+        tuple(
+            val(meta),
+            path(metrics)
+        )
+
+    output:
+        tuple(
+            val(meta),
+            path("${meta.id}_metrics.avi")
+        )
+
+    script:
+        """
+        #!/usr/bin/env python3
+
+        import cv2 as cv
+        import numpy as np
+        import pandas as pd
+        
+        cap = cv.VideoCapture("${video_in}")
+        n_frames = int(cap.get(cv.CAP_PROP_FRAME_COUNT))
+        w = int(cap.get(cv.CAP_PROP_FRAME_WIDTH))
+        h = int(cap.get(cv.CAP_PROP_FRAME_HEIGHT))
+        
+        fourcc = cv.VideoWriter_fourcc('h', '2', '6', '4')
+        out = cv.VideoWriter(
+            "${meta.id}_identities.avi", fourcc, fps, (w, h), isColor = True
+        ) 
+
+        colors = dict(
+            black = (0, 0, 0), # BGR black
+            red = (0, 0, 255), # BGR red
+        )
+        font = cv.FONT_HERSHEY_SIMPLEX
+        font_size = 0.3
+        font_width = 1
+        scale_factor = 10
+
+        df = pd.read_csv("${metrics}")
+
+        def add_frame_counter(frame, i):
+            frame = cv.putText(
+                frame,
+                str(i),
+                (0, 10),
+                font,
+                font_size,
+                colors["black"],
+                font_width,
+            )
+
+            return frame
+
+        def add_metrics(frame, i):
+            for fish, color_name in zip(["test", "ref"], ["black", "red"]):
+                pt1 = df.iloc[i][["{n}_x".format(fish), "{n}_y".format(fish)]].to_numpy()
+                theta = df.iloc[i]["{n}_angle".format(fish)]
+                delta = df.iloc[i]["{n}_distance".format(fish)]
+                dx_dy = np.array([np.cos(theta), np.sin(theta)]) * delta
+                pt2 = pt1 + (dx_dy * scale_factor)
+
+                frame = cv.arrowedLine(
+                    frame,
+                    pt1,
+                    pt2,
+                    colors[[color_name]],
+                )
+
+            return frame
+        
+        for i in range(n_frames):
+            ret, frame = cap.read()
+            assert ret
+            frame = add_frame_counter(frame, i)
+            frame = add_metrics(frame, i)
+            out.write(frame)
+            
+        cap.release()
+        out.release()
+        """
+}
+
+
 workflow HMM {
     take:
         in_ch
@@ -92,7 +180,7 @@ workflow HMM {
             new_meta.time_step = time_step
             [ new_meta, traj, time_step ]
         }
-        .first()
+        .filter { meta.id == "20190611_1331_icab_icab_R_no_q1" }
         .set { metrics_in }
         compute_metrics ( metrics_in )
 }
