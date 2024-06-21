@@ -13,7 +13,6 @@ process compute_metrics {
     // compute metrics to feed to the hmm from the trajectories:
     // angles and distances
     label "r_tidyverse_datatable"
-    queue "datamover"
 
     input:
         tuple(
@@ -93,7 +92,6 @@ process compute_metrics {
 
 process visualise_metrics {
     label "python_opencv_numpy_pandas"
-    queue "datamover"
 
     input:
         tuple(
@@ -201,7 +199,7 @@ process run_hmm {
     output:
         tuple(
             val(meta),
-            path("${meta.id}_states${meta.n_states}_step${meta.time_step}_hmm.csv.gz")
+            path("${meta.id}_hmm.csv.gz")
         )
 
     script:
@@ -213,6 +211,10 @@ process run_hmm {
         import numpy as np
         import glob
         import re
+        import random
+
+        random.seed(1)
+        hmm_seed = random.randint(0, int(1e6))
 
         col_renamer = {
             "ref_distance": "distance",
@@ -225,26 +227,241 @@ process run_hmm {
             id = re.sub("_metrics.csv.gz", "", f)
             df = pd.read_csv(f)
             df["id"] = id
-            df_ref = df[["id", "ref_distance", "ref_angle"]].rename(columns = col_renamer).dropna()
-            df_test = df[["id", "test_distance", "test_angle"]].rename(columns = col_renamer).dropna()
-            df_ref["id"] += "ref"
-            df_test["id"] += "test"
+            df_ref = df[["id", "frame_n", "time_s", "ref_distance", "ref_angle"]].rename(columns = col_renamer).dropna()
+            df_test = df[["id", "frame_n", "time_s", "test_distance", "test_angle"]].rename(columns = col_renamer).dropna()
+            df_ref["id"] += "_ref"
+            df_test["id"] += "_test"
 
-            return pd.concat([df_ref, df_test])
+            return pd.concat([df_ref, df_test], ignore_index = True)
 
         f_list = glob.glob("*_metrics.csv.gz")
         df = pd.concat(
-            map(read_metric, f_list)
+            map(read_metric, f_list),
+            ignore_index = True
+        ).sort_values(
+            by = ["id", "frame_n"]
         )
+
         X = df[["distance", "angle"]].to_numpy()
         l = df.groupby("id").size().to_numpy()
+        assert l.sum() == X.shape[0]
 
-        model = hmm.GaussianHMM(n_components=${n_states}, covariance_type="diag", n_iter=100)
+        model = hmm.GaussianHMM(n_components=${n_states}, covariance_type="diag", n_iter=100, random_state = hmm_seed)
         model.fit(X, lengths = l)
 
-        out = df[["id"]]
-        out[["hmm_state"]] = model.predict(X, lengths = l)
-        out.to_csv("${meta.id}_states${meta.n_states}_step${meta.time_step}_hmm.csv.gz", index = False)
+        out = df
+        out["hmm_state"] = model.predict(X, lengths = l)
+        out.to_csv("${meta.id}_hmm.csv.gz", index = False)
+        """
+}
+
+process hmm_cross_validation {
+    label "python_hmmlearn_numpy_pandas"
+
+    input:
+        tuple(
+            val(meta),
+            path(metrics),
+            val(n_states),
+            path(cv_splits)
+        )
+
+    output:
+        tuple(
+            val(meta),
+            path("${meta.id}_hmm.csv.gz")
+        )
+
+    script:
+        """
+        #!/usr/bin/env python3
+
+        from hmmlearn import hmm
+        import pandas as pd
+        import numpy as np
+        import glob
+        import re
+        import random
+
+        random.seed(1)
+
+        col_renamer = {
+            "ref_distance": "distance",
+            "test_distance": "distance",
+            "ref_angle": "angle",
+            "test_angle": "angle",
+        }
+
+        def read_metric(f):
+            id = re.sub("_metrics.csv.gz", "", f)
+            df = pd.read_csv(f)
+            df["id"] = id
+            df_ref = df[["id", "frame_n", "time_s", "ref_distance", "ref_angle"]].rename(columns = col_renamer).dropna()
+            df_test = df[["id", "frame_n", "time_s", "test_distance", "test_angle"]].rename(columns = col_renamer).dropna()
+            df_ref["id"] += "_ref"
+            df_test["id"] += "_test"
+
+            return pd.concat([df_ref, df_test], ignore_index = True)
+
+        def train_hmm(f_df, cv_class):
+            hmm_seed = random.randint(0, int(1e6))
+            
+            f_list = f_df.loc[f_df["cv_fold"] == cv_class, "f"]
+            df = pd.concat(
+                map(read_metric, f_list),
+                ignore_index = True
+            ).sort_values(
+                by = ["id", "frame_n"]
+            )
+            df["cv_fold"] = cv_class
+
+            X = df[["distance", "angle"]].to_numpy()
+            l = df.groupby("id").size().to_numpy()
+            assert l.sum() == X.shape[0]
+
+            model = hmm.GaussianHMM(
+                n_components=${n_states}, covariance_type="diag", n_iter=1, random_state = hmm_seed
+            )
+            model.fit(X, lengths = l)
+
+            ret = {
+                "model": model,
+                "X": X,
+                "l": l,
+                "df": df
+            }
+
+            return ret
+
+        def hmm_predict(d, self, val):
+            df = d[self]["df"]
+            X = d[self]["X"]
+            l = d[self]["l"]
+
+            df["hmm_state_self"] = list(map(
+                lambda s: self + "_" + str(s),
+                d[self]["model"].predict(X, lengths = l)
+            ))
+            df["hmm_state_val"] = list(map(
+                lambda s: val + "_" + str(s),
+                d[val]["model"].predict(X, lengths = l)
+            ))
+
+            return df
+
+        cv_splits = pd.read_csv("${cv_splits}").set_index("id")
+        f_list_full = glob.glob("*_metrics.csv.gz")
+        f_df = pd.DataFrame(
+            {
+                "id": map(lambda f: re.sub("_metrics.csv.gz", "", f), f_list_full),
+                "f": f_list_full,
+            }
+        ).join(
+            cv_splits,
+            on = "id",
+            validate = "one_to_one"
+        )
+        
+        res = {
+            "A": train_hmm(f_df, "A"),
+            "B": train_hmm(f_df, "B")
+        }
+        out = pd.concat(
+            [
+                hmm_predict(res, self = "A", val = "B"),
+                hmm_predict(res, self = "B", val = "A")
+            ]
+        )
+        out.to_csv("${meta.id}_hmm_cross_validation.csv.gz", index = False)
+        """
+}
+
+process hmm_concordance {
+    label "r_tidyverse_datatable"
+
+    input:
+        tuple(
+            val(meta),
+            path(hmm_cv)
+        )
+
+    output:
+        tuple(
+            val(meta),
+            path("${meta.id}_concordance.csv.gz")
+        )
+
+    script:
+        """
+        #!/usr/bin/env Rscript
+
+        library("data.table")
+        
+        df <- fread("${hmm_cv}")
+        concordance <- list()
+        
+        # process separately the 2 folds
+        for (cv_fold in c("A", "B")) {
+            tmp <- df[cv_fold == ..cv_fold]
+            # order self states from most to least populated
+            self_state_counts <- tmp[, .(n = .N), by = hmm_state_self][order(n, decreasing = TRUE)]
+            state_match <- data.table(
+                self_state = self_state_counts[["hmm_state_self"]],
+                val_state = NA,
+                cv_fold = cv_fold
+            )
+            
+            # get the state matches
+            for (self_state in state_match[["self_state"]]) {
+                # get the val_state with the highest overlap to self_state
+                val_state <- tmp[
+                    self_state == ..self_state & !(val_state %in% state_match[["val_state"]]),
+                    .(n = .N),
+                    by = hmm_state_val
+                ][
+                    order(n, decreasing = TRUE)[1]
+                ]
+
+                # assign the match
+                state_match[self_state == ..self_state, val_state := ..val_state]
+            }
+
+            # recode the states
+            tmp[, hmm_self_state := match(hmm_self_state, state_match[["self_state"]])]
+            tmp[, hmm_val_state := match(hmm_val_state, state_match[["val_state"]])]
+
+            # compute concordance
+            concordance[[cv_fold]] <- tmp[, mean(hmm_state_self == hmm_state_val)]
+        }
+
+        out <- data.table(
+            time_step = ${meta.time_step},
+            n_states = ${meta.n_states},
+            concordance_A = concordance[["A"]],
+            concordance_B = concordance[["B"]]
+        )
+        fwrite(out, "${meta.id}_concordance.csv.gz")
+        """
+}
+
+process combine_concordance {
+    label "r_tidyverse_datatable"
+
+    input:
+        path(concordance)
+
+    output:
+        path("hmm_concordance.csv.gz")
+
+    script:
+        """
+        #!/usr/bin/env Rscript
+
+        library("data.table")
+        
+        f_list <- list.files(pattern = "*_concordance.csv.gz")
+        df <- lapply(f_list, fread) |> rbindlist()
+        fwrite(df, "concordance.csv.gz")
         """
 }
 
@@ -256,6 +473,7 @@ workflow HMM {
     
     main:
         traj.combine ( params.time_interval )
+        .filter { it[2] == 0.08 }
         .map{
             meta, traj, time_step ->
             def new_meta = meta.clone()
@@ -274,15 +492,20 @@ workflow HMM {
         
         compute_metrics.out
         .combine( params.n_states )
+        .filter { it[2] == 14 }
         .map {
             meta, metrics, n_states ->
-            def new_meta = meta.clone()
-            new_meta.n_states = n_states
-            def group_key = [meta.time_step, n_states]
-            [ group_key, new_meta, metrics, n_states ]
+            def new_meta = [
+                id: "time_step${meta.time_step}_n_states${n_states}",
+                time_step: meta.time_step,
+                n_states: n_states
+            ]
+            [ new_meta, metrics, n_states ]
         }
-        .groupTuple(by: 0)
-        .map { group_key, meta, metrics, n_states -> [ meta, metrics, n_states ] }
+        .groupTuple ( by: [0, 2] )
         .set { hmm_in }
         //run_hmm ( hmm_in )
+        hmm_cross_validation ( hmm_in.combine ( [ params.hmm_cv_splits ] ) )
+        //hmm_concordance ( hmm_cross_validation.out )
+        //combine_concordance ( hmm_concordance.out.map { meta, f -> f }.collect() )
 }
