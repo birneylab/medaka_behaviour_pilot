@@ -269,7 +269,7 @@ process hmm_cross_validation {
     output:
         tuple(
             val(meta),
-            path("${meta.id}_hmm.csv.gz")
+            path("${meta.id}_hmm_cross_validation.csv.gz")
         )
 
     script:
@@ -401,37 +401,49 @@ process hmm_concordance {
         concordance <- list()
         
         # process separately the 2 folds
-        for (cv_fold in c("A", "B")) {
-            tmp <- df[cv_fold == ..cv_fold]
+        for (the_cv_fold in c("A", "B")) {
+            tmp <- df[cv_fold == the_cv_fold]
             # order self states from most to least populated
             self_state_counts <- tmp[, .(n = .N), by = hmm_state_self][order(n, decreasing = TRUE)]
             state_match <- data.table(
                 self_state = self_state_counts[["hmm_state_self"]],
-                val_state = NA,
-                cv_fold = cv_fold
+                val_state = "NA", # must be a character!
+                cv_fold = the_cv_fold
             )
             
             # get the state matches
-            for (self_state in state_match[["self_state"]]) {
+            for (the_self_state in state_match[["self_state"]]) {
                 # get the val_state with the highest overlap to self_state
-                val_state <- tmp[
-                    self_state == ..self_state & !(val_state %in% state_match[["val_state"]]),
+                val_state_counts <- tmp[
+                    hmm_state_self == the_self_state & !(hmm_state_val %in% state_match[["val_state"]]),
                     .(n = .N),
                     by = hmm_state_val
-                ][
-                    order(n, decreasing = TRUE)[1]
                 ]
+                
+                if (nrow(val_state_counts) > 0) {
+                    the_val_state <- val_state_counts[
+                        order(n, decreasing = TRUE)[1], hmm_state_val
+                    ]
+                } else {
+                    the_val_state <- tmp[
+                        !(hmm_state_val %in% state_match[["val_state"]]),
+                        unique(hmm_state_val)[1]
+                    ]
+                }
 
                 # assign the match
-                state_match[self_state == ..self_state, val_state := ..val_state]
+                state_match[self_state == the_self_state, val_state := ..the_val_state]
             }
 
+            stopifnot(sort(state_match[["val_state"]]) == sort(unique(tmp[["hmm_state_val"]])))
+            stopifnot(sort(state_match[["self_state"]]) == sort(unique(tmp[["hmm_state_self"]])))
+
             # recode the states
-            tmp[, hmm_self_state := match(hmm_self_state, state_match[["self_state"]])]
-            tmp[, hmm_val_state := match(hmm_val_state, state_match[["val_state"]])]
+            tmp[, hmm_state_self := match(hmm_state_self, ..state_match[["self_state"]])]
+            tmp[, hmm_state_val := match(hmm_state_val, ..state_match[["val_state"]])]
 
             # compute concordance
-            concordance[[cv_fold]] <- tmp[, mean(hmm_state_self == hmm_state_val)]
+            concordance[[the_cv_fold]] <- tmp[, mean(hmm_state_self == hmm_state_val)]
         }
 
         out <- data.table(
@@ -472,7 +484,7 @@ workflow HMM {
         split_vids
     
     main:
-        traj.combine ( params.time_interval )
+        traj.combine ( params.time_step )
         .filter { it[2] == 0.08 }
         .map{
             meta, traj, time_step ->
@@ -504,8 +516,14 @@ workflow HMM {
         }
         .groupTuple ( by: [0, 2] )
         .set { hmm_in }
-        //run_hmm ( hmm_in )
         hmm_cross_validation ( hmm_in.combine ( [ params.hmm_cv_splits ] ) )
-        //hmm_concordance ( hmm_cross_validation.out )
-        //combine_concordance ( hmm_concordance.out.map { meta, f -> f }.collect() )
+        hmm_concordance ( hmm_cross_validation.out )
+        combine_concordance ( hmm_concordance.out.map { meta, f -> f }.collect() )
+
+        hmm_in.filter {
+            meta, metrics, n_states ->
+            meta.n_states == params.n_states_selected && meta.time_step == params.time_step_selected
+        }
+        .set { hmm_in_selected }
+        //run_hmm ( hmm_in_selected )
 }
