@@ -320,7 +320,7 @@ process hmm_cross_validation {
             assert l.sum() == X.shape[0]
 
             model = hmm.GaussianHMM(
-                n_components=${n_states}, covariance_type="diag", n_iter=1, random_state = hmm_seed
+                n_components=${n_states}, covariance_type="diag", n_iter=100, random_state = hmm_seed
             )
             model.fit(X, lengths = l)
 
@@ -463,7 +463,7 @@ process combine_concordance {
         path(concordance)
 
     output:
-        path("hmm_concordance.csv.gz")
+        path("concordance.csv.gz")
 
     script:
         """
@@ -485,7 +485,6 @@ workflow HMM {
     
     main:
         traj.combine ( params.time_step )
-        .filter { it[2] == 0.08 }
         .map{
             meta, traj, time_step ->
             def new_meta = meta.clone()
@@ -504,7 +503,6 @@ workflow HMM {
         
         compute_metrics.out
         .combine( params.n_states )
-        .filter { it[2] == 14 }
         .map {
             meta, metrics, n_states ->
             def new_meta = [
@@ -525,5 +523,5 @@ workflow HMM {
             meta.n_states == params.n_states_selected && meta.time_step == params.time_step_selected
         }
         .set { hmm_in_selected }
-        //run_hmm ( hmm_in_selected )
+        run_hmm ( hmm_in_selected )
 }
