@@ -246,7 +246,13 @@ process run_hmm {
         l = df.groupby("id").size().to_numpy()
         assert l.sum() == X.shape[0]
 
-        model = hmm.GaussianHMM(n_components=${n_states}, covariance_type="diag", n_iter=100, random_state = hmm_seed)
+        model = hmm.GaussianHMM(
+            n_components = ${n_states},
+            covariance_type = "diag",
+            n_iter = 100,
+            random_state = hmm_seed,
+            verbose = True,
+        )
         model.fit(X, lengths = l)
 
         out = df
@@ -320,7 +326,11 @@ process hmm_cross_validation {
             assert l.sum() == X.shape[0]
 
             model = hmm.GaussianHMM(
-                n_components=${n_states}, covariance_type="diag", n_iter=100, random_state = hmm_seed
+                n_components=${n_states},
+                covariance_type="diag",
+                n_iter=100,
+                random_state = hmm_seed,
+                verbose = True,
             )
             model.fit(X, lengths = l)
 
