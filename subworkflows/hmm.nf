@@ -292,7 +292,7 @@ process run_kruskal_wallis {
         
         df <- fread("${hmm_res}")
         df[, fish := str_remove(id, "^.*_")]
-        df[, assay := str_remove(id, "^[0-9]*_[0-9]*_icab_[a-zA-Z]_(R|L)_") |> str_remove("_.*\$")]
+        df[, assay := str_remove(id, "^[0-9]*_[0-9]*_icab_[a-zA-Z0-9]*_(R|L)_") |> str_remove("_.*\$")]
         df[
             , strain := ifelse(
                 fish == "test",
@@ -301,12 +301,12 @@ process run_kruskal_wallis {
             )
         ]
         test_df <- df[, .(n_state = .N), by = c("id", "hmm_state", "fish", "strain", "assay")]
-        test_df[, n_tot := .N, by = "id"]
+        test_df[, n_tot := sum(n_state), by = "id"]
         test_df[, f_state := n_state/n_tot]
         stopifnot(test_df[, all((f_state >= 0) & (f_state <= 1))])
-        stopifnot(test_df[, all(sum(f_state) == 1), by = id])
+        stopifnot(test_df[, .(res = sum(f_state) == 1), by = id][, all(res)])
 
-        for (the_state in test_df[, unique(hmm_state)]) {
+        run_test <- function(the_state) {
             tmp <- test_df[hmm_state == the_state]
             fit <- kruskal.test(
                 f_state ~ strain,
@@ -315,9 +315,21 @@ process run_kruskal_wallis {
                     (fish == "test") | ((fish == "ref") & (strain == "icab"))
                 ]
             )
-            broom::tidy(fit)
+            ret <- data.table(
+                time_step = ${meta.time_step},
+                n_states = ${meta.n_states},
+                hmm_state = the_state,
+                chisq = fit[[1]] |> as.numeric(),
+                df = fit[[2]] |> as.numeric(),
+                pval = fit[[3]] |> as.numeric()
+            )
+
+            return(ret)
         }
-        
+
+        out <- lapply(test_df[, unique(hmm_state)], run_test) |>
+            rbindlist()
+        fwrite(out, "${meta.id}_kruskal_wallis.csv.gz")
         """
 }
 process hmm_cross_validation {
@@ -576,18 +588,18 @@ process plot_conf_mat {
             scale_fill_distiller(palette = "RdBu") +
             facet_wrap(~cv_fold)
 
-        ggsave(p, "${meta.id}_confusion_mat.png", width = 14, height = 7)
+        ggsave("${meta.id}_confusion_mat.png", p, width = 14, height = 7)
         """
 }
 
-process combine_concordance {
+process combine_concordance_kruskal_wallis {
     label "r_tidyverse_datatable"
 
     input:
-        path(concordance)
+        path(infiles)
 
     output:
-        path("concordance.csv.gz")
+        path("concordance_kruskal_wallis_combined.csv.gz")
 
     script:
         """
@@ -595,9 +607,19 @@ process combine_concordance {
 
         library("data.table")
         
-        f_list <- list.files(pattern = "*_concordance.csv.gz")
-        df <- lapply(f_list, fread) |> rbindlist()
-        fwrite(df, "concordance.csv.gz")
+        f_list_concordance <- list.files(pattern = "*_concordance.csv.gz")
+        df_concordance <- lapply(f_list_concordance, fread) |> rbindlist()
+        
+        f_list_kw <- list.files(pattern = "*_kruskal_wallis.csv.gz")
+        df_kw <- lapply(f_list_kw, fread) |> rbindlist()
+        
+        df <- merge(
+            df_concordance,
+            df_kw,
+            by = c("time_step", "n_states"),
+            all = TRUE
+        )
+        fwrite(df, "concordance_kruskal_wallis_combined.csv.gz")
         """
 }
 
@@ -639,10 +661,21 @@ workflow HMM {
         .groupTuple ( by: [0, 2] )
         .set { hmm_in }
         run_hmm ( hmm_in.filter { meta, i1, i2 -> meta.n_states == 14 & meta.time_step == 0.08 } )
-        //run_kruskal_wallis ( run_hmm.out )
+        run_kruskal_wallis ( run_hmm.out )
 
         hmm_cross_validation ( hmm_in.combine ( [ params.hmm_cv_splits ] ) )
         hmm_concordance ( hmm_cross_validation.out )
         plot_conf_mat ( hmm_concordance.out.map { meta, drop, drop2, cmat -> [ meta, cmat ] } )
-        combine_concordance ( hmm_concordance.out.map { meta, drop, f, drop2 -> f }.collect() )
+        
+        hmm_concordance.out
+        .map { meta, drop, f, drop2 -> f }
+        .set { combined_concordance }
+        run_kruskal_wallis.out
+        .map { meta, f -> f }
+        .set { combined_kruskal_wallis }
+        combined_concordance
+        .mix ( combined_kruskal_wallis )
+        .collect ( sort: true )
+        .set { combine_concordance_kruskal_wallis_in }
+        combine_concordance_kruskal_wallis ( combine_concordance_kruskal_wallis_in )
 }
