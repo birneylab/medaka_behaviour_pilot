@@ -13,6 +13,8 @@ process compute_metrics {
     // compute metrics to feed to the hmm from the trajectories:
     // angles and distances
     label "r_tidyverse_datatable"
+    tag "${meta.id}"
+    queue "datamover"
 
     input:
         tuple(
@@ -92,6 +94,8 @@ process compute_metrics {
 
 process visualise_metrics {
     label "python_opencv_numpy_pandas"
+    tag "${meta.id}"
+    queue "datamover"
 
     input:
         tuple(
@@ -188,6 +192,7 @@ process visualise_metrics {
 
 process run_hmm {
     label "python_hmmlearn_numpy_pandas"
+    tag "${meta.id}"
 
     input:
         tuple(
@@ -261,8 +266,63 @@ process run_hmm {
         """
 }
 
+process run_kruskal_wallis {
+    // run a kruskal wallis test by medaka line
+    label "r_tidyverse_datatable"
+    tag "${meta.id}"
+
+    input:
+        tuple(
+            val(meta),
+            path(hmm_res)
+        )
+
+    output:
+        tuple(
+            val(meta),
+            path("${meta.id}_kruskal_wallis.csv.gz")
+        )
+
+    script:
+        """
+        #!/usr/bin/env Rscript
+
+        library("data.table")
+        library("tidyverse")
+        
+        df <- fread("${hmm_res}")
+        df[, fish := str_remove(id, "^.*_")]
+        df[, assay := str_remove(id, "^[0-9]*_[0-9]*_icab_[a-zA-Z]_(R|L)_") |> str_remove("_.*\$")]
+        df[
+            , strain := ifelse(
+                fish == "test",
+                str_remove(id, "^[0-9]*_[0-9]*_icab_") |> str_remove("_.*\$"),
+                "icab"
+            )
+        ]
+        test_df <- df[, .(n_state = .N), by = c("id", "hmm_state", "fish", "strain", "assay")]
+        test_df[, n_tot := .N, by = "id"]
+        test_df[, f_state := n_state/n_tot]
+        stopifnot(test_df[, all((f_state >= 0) & (f_state <= 1))])
+        stopifnot(test_df[, all(sum(f_state) == 1), by = id])
+
+        for (the_state in test_df[, unique(hmm_state)]) {
+            tmp <- test_df[hmm_state == the_state]
+            fit <- kruskal.test(
+                f_state ~ strain,
+                data = tmp[
+                    # keep only the test fish or the icab-icab pairs for direct genetic effect
+                    (fish == "test") | ((fish == "ref") & (strain == "icab"))
+                ]
+            )
+            broom::tidy(fit)
+        }
+        
+        """
+}
 process hmm_cross_validation {
     label "python_hmmlearn_numpy_pandas"
+    tag "${meta.id}"
 
     input:
         tuple(
@@ -388,6 +448,7 @@ process hmm_cross_validation {
 
 process hmm_concordance {
     label "r_tidyverse_datatable"
+    tag "${meta.id}"
 
     input:
         tuple(
@@ -398,7 +459,9 @@ process hmm_concordance {
     output:
         tuple(
             val(meta),
-            path("${meta.id}_concordance.csv.gz")
+            path("${meta.id}_hmm_cross_validation_recoded.csv.gz"),
+            path("${meta.id}_concordance.csv.gz"),
+            path("${meta.id}_conf_mat.csv.gz")
         )
 
     script:
@@ -408,7 +471,9 @@ process hmm_concordance {
         library("data.table")
         
         df <- fread("${hmm_cv}")
+        recoded_hmm_cv <- list()
         concordance <- list()
+        conf_mat <- list()
         
         # process separately the 2 folds
         for (the_cv_fold in c("A", "B")) {
@@ -449,12 +514,21 @@ process hmm_concordance {
             stopifnot(sort(state_match[["self_state"]]) == sort(unique(tmp[["hmm_state_self"]])))
 
             # recode the states
-            tmp[, hmm_state_self := match(hmm_state_self, ..state_match[["self_state"]])]
-            tmp[, hmm_state_val := match(hmm_state_val, ..state_match[["val_state"]])]
+            tmp[, hmm_state_self_matched := match(hmm_state_self, ..state_match[["self_state"]])]
+            tmp[, hmm_state_val_matched := match(hmm_state_val, ..state_match[["val_state"]])]
+            recoded_hmm_cv[[the_cv_fold]] <- tmp
 
             # compute concordance
-            concordance[[the_cv_fold]] <- tmp[, mean(hmm_state_self == hmm_state_val)]
+            concordance[[the_cv_fold]] <- tmp[, mean(hmm_state_self_matched == hmm_state_val_matched)]
+
+            # confusion matrix
+            conf_mat[[the_cv_fold]] <- tmp[
+                , .(n = .N), by = c("cv_fold", "hmm_state_self_matched", "hmm_state_val_matched")
+            ]
         }
+
+        out <- rbindlist(recoded_hmm_cv)
+        fwrite(out, "${meta.id}_hmm_cross_validation_recoded.csv.gz")
 
         out <- data.table(
             time_step = ${meta.time_step},
@@ -463,6 +537,46 @@ process hmm_concordance {
             concordance_B = concordance[["B"]]
         )
         fwrite(out, "${meta.id}_concordance.csv.gz")
+
+        out <- rbindlist(conf_mat)
+        fwrite(out, "${meta.id}_conf_mat.csv.gz")
+        """
+}
+
+process plot_conf_mat {
+    label "r_tidyverse_datatable"
+    tag "${meta.id}"
+
+    input:
+        tuple(
+            val(meta),
+            path(cmat)
+        )
+
+    output:
+        tuple(
+            val(meta),
+            path("${meta.id}_confusion_mat.png")
+        )
+
+    script:
+        """
+        #!/usr/bin/env Rscript
+
+        library("data.table")
+        library("tidyverse")
+        
+        df <- fread("${cmat}") |>
+            complete(cv_fold, hmm_state_self_matched, hmm_state_val_matched, fill = list(n = 0))
+
+        p <- ggplot(df, aes(x = hmm_state_self_matched, y = hmm_state_val_matched, fill = (n / sum(n)) * 100)) +
+            geom_tile() +
+            theme_minimal() +
+            labs(x = "Self state", y = "Val state", fill = "Proportion (%)") +
+            scale_fill_distiller(palette = "RdBu") +
+            facet_wrap(~cv_fold)
+
+        ggsave(p, "${meta.id}_confusion_mat.png", width = 14, height = 7)
         """
 }
 
@@ -524,14 +638,11 @@ workflow HMM {
         }
         .groupTuple ( by: [0, 2] )
         .set { hmm_in }
+        run_hmm ( hmm_in.filter { meta, i1, i2 -> meta.n_states == 14 & meta.time_step == 0.08 } )
+        //run_kruskal_wallis ( run_hmm.out )
+
         hmm_cross_validation ( hmm_in.combine ( [ params.hmm_cv_splits ] ) )
         hmm_concordance ( hmm_cross_validation.out )
-        combine_concordance ( hmm_concordance.out.map { meta, f -> f }.collect() )
-
-        hmm_in.filter {
-            meta, metrics, n_states ->
-            meta.n_states == params.n_states_selected && meta.time_step == params.time_step_selected
-        }
-        .set { hmm_in_selected }
-        run_hmm ( hmm_in_selected )
+        plot_conf_mat ( hmm_concordance.out.map { meta, drop, drop2, cmat -> [ meta, cmat ] } )
+        combine_concordance ( hmm_concordance.out.map { meta, drop, f, drop2 -> f }.collect() )
 }

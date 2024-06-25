@@ -195,6 +195,7 @@ process visualise_identities {
     // check that ref and test are assigned correctly
     label "python_opencv_numpy_pandas"
     tag "${meta.id}"
+    queue "datamover"
 
     input:
         tuple(

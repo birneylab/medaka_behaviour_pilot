@@ -40,6 +40,7 @@ process adjust_orientation {
 process set_split_coords {
     // visualise the splitting coordinates on a frame grab
     label "python_opencv_numpy_pandas"
+    tag "${meta.id}"
 
     input:
         tuple(
