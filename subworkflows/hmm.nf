@@ -62,20 +62,21 @@ process compute_metrics {
             return(rad)
         }
 
-        step_size_s <- ${time_step}
-        step_size_frames <- round(step_size_s * ${meta.fps})
-        
         df <- fread("${traj}")
         df[, frame_n := 1:.N]
         df[, time_s := frame_n/${meta.fps}]
-        df[, ref_x_lag := shift(ref_x, step_size_frames)]
-        df[, ref_y_lag := shift(ref_y, step_size_frames)]
-        df[, test_x_lag := shift(test_x, step_size_frames)]
-        df[, test_y_lag := shift(test_y, step_size_frames)]
-        df[, ref_x_lead := shift(ref_x, -step_size_frames)]
-        df[, ref_y_lead := shift(ref_y, -step_size_frames)]
-        df[, test_x_lead := shift(test_x, -step_size_frames)]
-        df[, test_y_lead := shift(test_y, -step_size_frames)]
+
+        step_size_frames <- round(${time_step} * ${meta.fps})
+        df <- df[seq(1, nrow(df), step_nframes)]
+        
+        df[, ref_x_lag := shift(ref_x, 1)]
+        df[, ref_y_lag := shift(ref_y, 1)]
+        df[, test_x_lag := shift(test_x, 1)]
+        df[, test_y_lag := shift(test_y, 1)]
+        df[, ref_x_lead := shift(ref_x, -1)]
+        df[, ref_y_lead := shift(ref_y, -1)]
+        df[, test_x_lead := shift(test_x, -1)]
+        df[, test_y_lead := shift(test_y, -1)]
         df[, ref_distance := get_dist(ref_x, ref_x_lag, ref_y, ref_y_lag)]
         df[, test_distance := get_dist(test_x, test_x_lag, test_y, test_y_lag)]
         df[, ref_angle := get_angle(ref_x_lag, ref_x, ref_x_lead, ref_y_lag, ref_y, ref_y_lead)]
@@ -254,7 +255,7 @@ process run_hmm {
         model = hmm.GaussianHMM(
             n_components = ${n_states},
             covariance_type = "diag",
-            n_iter = 100,
+            n_iter = ${params.hmm_iter},
             random_state = hmm_seed,
             verbose = True,
         )
@@ -304,7 +305,7 @@ process run_kruskal_wallis {
         test_df[, n_tot := sum(n_state), by = "id"]
         test_df[, f_state := n_state/n_tot]
         stopifnot(test_df[, all((f_state >= 0) & (f_state <= 1))])
-        stopifnot(test_df[, .(res = sum(f_state) == 1), by = id][, all(res)])
+        stopifnot(test_df[, .(res = (sum(f_state) - 1) < sqrt(.Machine\$double.eps)), by = id][, all(res)])
 
         run_test <- function(the_state) {
             tmp <- test_df[hmm_state == the_state]
@@ -398,9 +399,9 @@ process hmm_cross_validation {
             assert l.sum() == X.shape[0]
 
             model = hmm.GaussianHMM(
-                n_components=${n_states},
-                covariance_type="diag",
-                n_iter=100,
+                n_components = ${n_states},
+                covariance_type = "diag",
+                n_iter = ${params.hmm_iter},
                 random_state = hmm_seed,
                 verbose = True,
             )
@@ -660,7 +661,7 @@ workflow HMM {
         }
         .groupTuple ( by: [0, 2] )
         .set { hmm_in }
-        run_hmm ( hmm_in.filter { meta, i1, i2 -> meta.n_states == 14 & meta.time_step == 0.08 } )
+        run_hmm ( hmm_in )
         run_kruskal_wallis ( run_hmm.out )
 
         hmm_cross_validation ( hmm_in.combine ( [ params.hmm_cv_splits ] ) )
