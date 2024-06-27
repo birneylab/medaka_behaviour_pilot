@@ -66,7 +66,7 @@ process compute_metrics {
         df[, frame_n := 1:.N]
         df[, time_s := frame_n/${meta.fps}]
 
-        step_size_frames <- round(${time_step} * ${meta.fps})
+        step_nframes <- round(${time_step} * ${meta.fps})
         df <- df[seq(1, nrow(df), step_nframes)]
         
         df[, ref_x_lag := shift(ref_x, 1)]
