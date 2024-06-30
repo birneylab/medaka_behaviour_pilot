@@ -14,7 +14,6 @@ process compute_metrics {
     // angles and distances
     label "r_tidyverse_datatable"
     tag "${meta.id}"
-    queue "datamover"
 
     input:
         tuple(
@@ -96,7 +95,6 @@ process compute_metrics {
 process visualise_metrics {
     label "python_opencv_numpy_pandas"
     tag "${meta.id}"
-    queue "datamover"
 
     input:
         tuple(
@@ -382,20 +380,11 @@ process hmm_cross_validation {
 
             return pd.concat([df_ref, df_test], ignore_index = True)
 
-        def train_hmm(f_df, cv_class):
+        def train_hmm(df_full, cv_class):
             hmm_seed = random.randint(0, int(1e6))
-            
-            f_list = f_df.loc[f_df["cv_fold"] == cv_class, "f"]
-            df = pd.concat(
-                map(read_metric, f_list),
-                ignore_index = True
-            ).sort_values(
-                by = ["id", "frame_n"]
-            )
-            df["cv_fold"] = cv_class
-
-            X = df[["distance", "angle"]].to_numpy()
-            l = df.groupby("id").size().to_numpy()
+            tmp = df_full.loc[df_full["cv_fold"] == cv_class,]
+            X = tmp[["distance", "angle"]].to_numpy()
+            l = tmp.groupby("id").size().to_numpy()
             assert l.sum() == X.shape[0]
 
             model = hmm.GaussianHMM(
@@ -411,7 +400,7 @@ process hmm_cross_validation {
                 "model": model,
                 "X": X,
                 "l": l,
-                "df": df
+                "df": tmp
             }
 
             return ret
@@ -433,21 +422,20 @@ process hmm_cross_validation {
             return df
 
         cv_splits = pd.read_csv("${cv_splits}").set_index("id")
-        f_list_full = glob.glob("*_metrics.csv.gz")
-        f_df = pd.DataFrame(
-            {
-                "id": map(lambda f: re.sub("_metrics.csv.gz", "", f), f_list_full),
-                "f": f_list_full,
-            }
+        f_list = glob.glob("*_metrics.csv.gz")
+        df_full = pd.concat(
+            map(read_metric, f_list),
+            ignore_index = True
         ).join(
             cv_splits,
             on = "id",
             validate = "one_to_one"
+        ).sort_values(
+            by = ["id", "frame_n"]
         )
-        
         res = {
-            "A": train_hmm(f_df, "A"),
-            "B": train_hmm(f_df, "B")
+            "A": train_hmm(df_full, "A"),
+            "B": train_hmm(df_full, "B")
         }
         out = pd.concat(
             [
@@ -646,7 +634,7 @@ workflow HMM {
         .combine( split_vids, by: 0 )
         .map { id, meta, metrics, vid -> [ meta, metrics, vid ] }
         .set { visualise_metrics_in }
-        visualise_metrics ( visualise_metrics_in )
+        //visualise_metrics ( visualise_metrics_in )
         
         compute_metrics.out
         .combine( params.n_states )
