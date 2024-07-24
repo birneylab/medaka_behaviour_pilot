@@ -429,7 +429,7 @@ process hmm_cross_validation {
         ).join(
             cv_splits,
             on = "id",
-            validate = "one_to_one"
+            validate = "many_to_one"
         ).sort_values(
             by = ["id", "frame_n"]
         )
