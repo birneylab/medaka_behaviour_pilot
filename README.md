@@ -1,4 +1,4 @@
-# Measurement and classification of bold-shy behaviours in medaka fish.
+# Measurement and classification of bold-shy behaviours in medaka fish
 
 This repository describes the analysis done in this work: [DOI of preprint].
 We studied differences in behaviour among medaka (*O. latipes*) strains.
