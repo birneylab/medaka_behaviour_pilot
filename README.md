@@ -1,7 +1,14 @@
 # Measurement and classification of bold-shy behaviours in medaka fish
 
-This repository describes the analysis done in this work: [DOI of preprint].
-We studied differences in behaviour among medaka (*O. latipes*) strains.
+This repository describes the analysis done in this work:
+
+```
+Measurement and classification of bold-shy behaviours in medaka fish
+Saul Pierotti, Ian Brettell, Tomas Fitzgerald, Cathrin Herder, Narendar Aadepu, Christian Pylatiuk, Joachim Wittbrodt, Ewan Birney, Felix Loosli
+**bioR$\chi$iv** 2024.10.18.618696; doi: [https://doi.org/10.1101/2024.10.18.618696](https://doi.org/10.1101/2024.10.18.618696)
+```
+
+We studied differences in behaviour among medaka (_O. latipes_) strains.
 We collected videos of medaka fish pairs, tracked their movements with the [idtracker.ai](https://idtracker.ai/latest/) package, and used a Hidden Markov Model (HMM) to classify behavioural modes.
 We detected significant differences in behaviour among medaka strains, and also differences in the behaviour of the tank partner (always from the same strain, iCab) depending on the medaka strain they are paired with.
 
