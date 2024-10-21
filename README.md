@@ -3,6 +3,7 @@
 This repository describes the analysis done in this work:
 
 > Measurement and classification of bold-shy behaviours in medaka fish
+>
 > Saul Pierotti, Ian Brettell, Tomas Fitzgerald, Cathrin Herder, Narendar Aadepu, Christian Pylatiuk, Joachim Wittbrodt, Ewan Birney, Felix Loosli
 > **bioR$\chi$iv** 2024.10.18.618696; doi: [https://doi.org/10.1101/2024.10.18.618696](https://doi.org/10.1101/2024.10.18.618696)
 
