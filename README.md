@@ -2,10 +2,11 @@
 
 This repository describes the analysis done in this work:
 
-> Measurement and classification of bold-shy behaviours in medaka fish
->
 > Saul Pierotti, Ian Brettell, Tomas Fitzgerald, Cathrin Herder, Narendar Aadepu, Christian Pylatiuk, Joachim Wittbrodt, Ewan Birney, Felix Loosli
-> **bioR$\chi$iv** 2024.10.18.618696; doi: [https://doi.org/10.1101/2024.10.18.618696](https://doi.org/10.1101/2024.10.18.618696)
+>
+> **Measurement and classification of bold-shy behaviours in medaka fish**
+>
+> _bioRxiv_ 2024.10.18.618696; doi: [https://doi.org/10.1101/2024.10.18.618696](https://doi.org/10.1101/2024.10.18.618696)
 
 We studied differences in behaviour among medaka (_O. latipes_) strains.
 We collected videos of medaka fish pairs, tracked their movements with the [idtracker.ai](https://idtracker.ai/latest/) package, and used a Hidden Markov Model (HMM) to classify behavioural modes.
